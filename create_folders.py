@@ -7,17 +7,16 @@ folders_structure = {
     "_Cycles": ["_Weekly-Cycles", "_6-Week-Cycles"],
     "_Monthly": ["_Months", "_Monthy-Review", "_Monthly-External"],
     "_Quarterly": ["_Quarters", "_Bets"],
-    "_Years": ["_Years", "_Annual-Letters", "_Mood-Boards"],
+    "_Years": ["_Years", "_Annual-Letters", "_Mood-Boards", "_Lifestyle-Design"],
     "_Values": ["_Core-Values", "_Principles+Mantras", "_Affirm", "_Master-Vision"],
     "_Experiences+Events+Meetings+Sessions": [],
     "_Knowledge-Hub": [],
-    "_Newsletters": [],
     "_Notes+Ideas": [],
     "_CRM": ["_People", "_Companies+Groups+Teams", "_Deals"],
     "_Places": [],
     "_Products+Consumption+Things": [],
     "_Templates": [],
-    "_Writing": ["_Drafts", "_Essays"]
+    "_Writing": ["_Thoughts+Sketches", "_Drafts", "_Published"]
 }
 
 # Function to create folders with subfolders
