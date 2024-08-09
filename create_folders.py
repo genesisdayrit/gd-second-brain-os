@@ -4,11 +4,11 @@ import os
 folders_structure = {
     "_Daily": ["_Journal", "_Daily-Action"],
     "_Weeks": ["_Weekly-Maps", "_Weekly_Touches",  "_Newsletters"],
+    "_Cycles": ["_Weekly-Cycles", "_6-Week-Cycles"],
     "_Months": ["_Monthy-Review", "_Monthly-External"],
     "_Quarters": ["_Quarterly-Preview", "_Bets", "_Quarterly-Review"],
     "_Years": ["_Annual-Letters", "_Resolutions", "_Mood-Boards"],
     "_Values": ["_Core-Values", "_Principles+Mantras", "_Affirm", "_Master-Vision"],
-    "_Cycles": ["_Weekly-Cycles", "_6-Week-Cycles"],
     "_Experiences+Events+Meetings+Sessions": [],
     "_Knowledge-Hub": [],
     "_Newsletters": [],
