@@ -40,7 +40,7 @@ Plan:
 
 - 
 
-Budget:
+Time Budget:
 
 - 
 
@@ -59,7 +59,7 @@ Plan:
 
 - 
 
-Budget:
+Time Budget:
 
 - 
 
@@ -77,7 +77,7 @@ Plan:
 
 - 
 
-Budget:
+Time Budget:
 
 - 
 
@@ -96,7 +96,7 @@ Plan:
 
 - 
 
-Budget:
+Time Budget:
 
 - 
 
@@ -115,7 +115,7 @@ Plan:
 
 - 
 
-Budget:
+Time Budget:
 
 - 
 
@@ -134,7 +134,7 @@ Plan:
 
 - 
 
-Budget:
+Time Budget:
 
 - 
 
@@ -153,7 +153,7 @@ Plan:
 
 - 
 
-Budget:
+Time Budget:
 
 - 
 
