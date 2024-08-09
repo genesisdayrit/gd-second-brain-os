@@ -64,6 +64,6 @@ Take:
 
 ---
 
-### Lex Questions:
+### Podcast Questions:
 
 -
