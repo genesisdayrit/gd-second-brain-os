@@ -6,7 +6,7 @@ Below is what the Typeform questions look like. Each line-break is a distinct in
 
 ---
 
-Hey <name>, hope your day was awesome.
+Hey {name}, hope your day was awesome.
 Let's review today & plan tomorrow!
 - (Start Button)
 
@@ -21,13 +21,13 @@ Now take a moment to review your North Star goals...
 - <month_goal>
 
 ---
-Let's reflect <name>, how well did you execute towards your objectives today on a scale of 1-5?
+Let's reflect {name}, how well did you execute towards your objectives today on a scale of 1-5?
 - (Rating Input 1-5)
 
 
 ---
 
-**<name>, recall your 3 biggest wins today...**
+**{name}, recall your 3 biggest wins today...**
 
 ---
 
@@ -48,7 +48,7 @@ Let's reflect <name>, how well did you execute towards your objectives today on 
 
 ---
 
-**Ok <name>, let's look at what did not go well today...**
+**Ok {name}, let's look at what did not go well today...**
 
 ##### What needs improvement?
 *Be as brief or as detailed as you like.*
