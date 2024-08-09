@@ -28,6 +28,7 @@ Qualities of people you want to be around:
 
 
 Anti-List:
+
 Qualities or energy states of people you'd rather not be around:
 
 ---
@@ -73,20 +74,24 @@ The Things I Attract into My Life are Even Better than I Imagine Them To Be.
 Locale
 
 Spring
-Location / Rent:
-Travel:
+
+- Location / Rent:
+- Travel:
 
 Summer
-Location / Rent:
-Travel:
+
+- Location / Rent:
+- Travel:
 
 Fall
-Location / Rent:
-Travel:
+
+- Location / Rent:
+- Travel:
 
 Winter
-Location / Rent:
-Travel:
+
+- Location / Rent:
+- Travel:
 
 ---
 
@@ -135,4 +140,4 @@ Atheletes You're Inspired By Mood Board:
 
 
 ---
-Dark side / Materialistic / Transmutation Board:
+Dark side / Transmutation Board:
