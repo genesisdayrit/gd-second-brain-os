@@ -7,10 +7,10 @@
 
 - 
 
+
 ### Notes/Reflections:
 
 - 
-
 
 
 ### 2-Week Cool Down Period:
