@@ -17,7 +17,7 @@ folders_structure = {
     "_Places": [],
     "_Products+Consumption+Things": [],
     "_Templates": [],
-    "_Writing": ["_Drafting", "_Essays"]
+    "_Writing": ["_Drafts", "_Essays"]
 }
 
 # Function to create folders with subfolders
