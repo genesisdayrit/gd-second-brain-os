@@ -13,7 +13,7 @@
 - 
 
 
-### 2-Week Cool Down Period:
+### 2-Week Cool Down Period / Shape-Up:
 
 - 
 
