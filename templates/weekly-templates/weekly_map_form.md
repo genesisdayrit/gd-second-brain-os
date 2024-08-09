@@ -6,7 +6,7 @@ Below is what the Typeform questions look like. Each line-break is a distinct in
 
 ---
 
-Hey Genesis, hope your week has been awesome.
+Hey {name}, hope your week has been awesome.
 
 Let's review this past week & plan the week ahead!
 
@@ -32,13 +32,13 @@ Remember: By simply placing your awareness on these goals, you are literally mat
 
 ---
 
-Let's reflect Genesis, how well did you execute towards your objectives this week on a scale of 1-5?
+Let's reflect {name}, how well did you execute towards your objectives this week on a scale of 1-5?
 
 (Rating 1-5 Selection)
 
 ---
 
-Genesis, recall your 3 biggest wins this past week...
+{name}, recall your 3 biggest wins this past week...
 
 (Continue button)
 
@@ -67,7 +67,7 @@ What proof from this past week demonstrates that my Master Vision is unfolding b
 
 ---
 
-Ok Genesis, let's look at what did not go well this week...
+Ok {name}, let's look at what did not go well this week...
 
 Be as brief or as detailed as you like.
 
