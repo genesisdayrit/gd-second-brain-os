@@ -5,7 +5,7 @@
 - 
 
 
-### Events / Fun:
+### Events / Fun / Plans:
 - 
 
 
@@ -25,7 +25,7 @@
 - 
 
 
-### Research / Questions / Content / Learning:
+### Research / Questions / Content / Learning consumption:
 - 
 
 
