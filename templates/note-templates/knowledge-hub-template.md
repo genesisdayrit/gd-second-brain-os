@@ -1,5 +1,5 @@
 
-### Main Idea:
+### Main Idea(s):
 
 - 
 
