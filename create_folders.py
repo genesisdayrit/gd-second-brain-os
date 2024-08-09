@@ -3,11 +3,11 @@ import os
 # Combined folder structure with subfolders and standalone folders
 folders_structure = {
     "_Daily": ["_Journal", "_Daily-Action"],
-    "_Weeks": ["_Weekly-Maps", "_Weekly-Touches",  "_Newsletters"],
+    "_Weekly": ["_Weeks","_Weekly-Maps", "_Newsletters", "_Weekly-Health-Review"],
     "_Cycles": ["_Weekly-Cycles", "_6-Week-Cycles"],
-    "_Months": ["_Monthy-Review", "_Monthly-External"],
-    "_Quarters": ["_Quarterly-Preview", "_Bets", "_Quarterly-Review"],
-    "_Years": ["_Annual-Letters", "_Resolutions", "_Mood-Boards"],
+    "_Monthly": ["_Months", "_Monthy-Review", "_Monthly-External"],
+    "_Quarterly": ["_Quarters", "_Bets"],
+    "_Years": ["_Years", "_Annual-Letters", "_Mood-Boards"],
     "_Values": ["_Core-Values", "_Principles+Mantras", "_Affirm", "_Master-Vision"],
     "_Experiences+Events+Meetings+Sessions": [],
     "_Knowledge-Hub": [],

@@ -12,6 +12,10 @@
 
 - Automatically link journal entries here
 
+### Weekly Health Review
+
+- Automatically link Weekly Health Review here
+
 
 ### Experiences+Events+Meetings+Sessions
 
