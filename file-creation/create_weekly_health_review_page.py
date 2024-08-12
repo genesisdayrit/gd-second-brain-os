@@ -53,8 +53,6 @@ def create_health_review_file(file_path):
     # Create the file with content
     try:
         with open(full_file_path, 'w') as file:
-            file.write(f"# Weekly Health Review {new_review_number} ({formatted_wednesday} - {formatted_tuesday})\n\n")
-            file.write(f"Review #: {new_review_number}\n")
             file.write(f"Start Date: {next_wednesday.strftime('%Y-%m-%d')}\n")
             file.write(f"End Date: {following_tuesday.strftime('%Y-%m-%d')}\n")
         print(f"Successfully created file '{file_name}'")

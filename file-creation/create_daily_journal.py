@@ -57,9 +57,7 @@ def create_journal_file(file_path):
     # Create the file with content
     try:
         with open(full_file_path, 'w') as file:
-            file.write(f"# {formatted_date}\n\n")
-            file.write(f"Date: {next_day.strftime('%Y-%m-%d')}\n\n")
-            file.write("## Journal Entry\n\n")
+                pass  # This creates an empty file
         print(f"Successfully created file '{file_name}'")
     except IOError as e:
         print(f"Error creating file: {e}")

@@ -53,8 +53,6 @@ def create_cycle_file(file_path):
     # Create the file with content
     try:
         with open(full_file_path, 'w') as file:
-            file.write(f"# Cycle {new_cycle_number} ({formatted_wednesday} - {formatted_tuesday})\n\n")
-            file.write(f"Cycle Number: {new_cycle_number}\n")
             file.write(f"Cycle Start Date: {next_wednesday.strftime('%Y-%m-%d')}\n")
             file.write(f"Cycle End Date: {following_tuesday.strftime('%Y-%m-%d')}\n")
         print(f"Successfully created file '{file_name}'")
