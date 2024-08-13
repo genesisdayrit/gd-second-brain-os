@@ -6,7 +6,10 @@ click==8.1.7
 dropbox==12.0.2
 fastapi==0.112.0
 h11==0.14.0
+httpcore==1.0.5
+httpx==0.27.0
 idna==3.7
+notion-client==2.2.1
 ply==3.11
 pydantic==2.8.2
 pydantic_core==2.20.1
