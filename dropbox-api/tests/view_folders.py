@@ -1,17 +1,21 @@
 import os
 import dropbox
 from dotenv import load_dotenv
+from pathlib import Path
 
-# Load the PROJECT_ROOT_PATH environment variable
-project_root = os.getenv('PROJECT_ROOT_PATH')
+# Load environment variables from .env file
+load_dotenv()
 
-# Check if PROJECT_ROOT_PATH is set
-if not project_root:
+# Get the PROJECT_ROOT_PATH
+PROJECT_ROOT_PATH = os.getenv('PROJECT_ROOT_PATH')
+
+# Ensure the PROJECT_ROOT_PATH is set
+if not PROJECT_ROOT_PATH:
     raise EnvironmentError("Error: PROJECT_ROOT_PATH environment variable not set")
 
 # Construct the path to the .env file and load it
-env_path = os.path.join(project_root, '.env')
-load_dotenv(env_path)
+env_path = Path(PROJECT_ROOT_PATH) / '.env'
+load_dotenv(dotenv_path=env_path)
 
 # Set up Dropbox access token
 DROPBOX_ACCESS_TOKEN = os.getenv('DROPBOX_ACCESS_TOKEN')
