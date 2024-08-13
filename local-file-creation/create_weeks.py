@@ -60,11 +60,8 @@ def main():
         print(f"Error: {e}")
         sys.exit(1)
 
-    # Check if today is Monday
-    if datetime.now().weekday() == 0:  # 0 corresponds to Monday
-        create_weekly_file(weekly_notes_path)
-    else:
-        print("Today is not Monday. The script will not run.")
+    # Run the file creation without checking the day of the week
+    create_weekly_file(weekly_notes_path)
 
 if __name__ == "__main__":
     main()
