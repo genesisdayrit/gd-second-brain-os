@@ -3,9 +3,21 @@ import sys
 from datetime import datetime, timedelta
 import dropbox
 from dotenv import load_dotenv
+from pathlib import Path
 
-# Load environment variables from .env
-load_dotenv(os.path.join(os.getenv('PROJECT_ROOT_PATH'), '.env'))
+# Load environment variables from .env file
+load_dotenv()
+
+# Get the PROJECT_ROOT_PATH
+PROJECT_ROOT_PATH = os.getenv('PROJECT_ROOT_PATH')
+
+# Ensure the PROJECT_ROOT_PATH is set
+if not PROJECT_ROOT_PATH:
+    raise EnvironmentError("Error: PROJECT_ROOT_PATH environment variable not set")
+
+# Construct the path to the .env file and load it
+env_path = Path(PROJECT_ROOT_PATH) / '.env'
+load_dotenv(dotenv_path=env_path)
 
 # Initialize Dropbox client
 DROPBOX_ACCESS_TOKEN = os.getenv('DROPBOX_ACCESS_TOKEN')
@@ -38,7 +50,7 @@ def create_weekly_file(weekly_notes_folder_path):
     except dropbox.exceptions.ApiError as e:
         if isinstance(e.error, dropbox.files.GetMetadataError):
             print(f"File '{file_name}' does not exist in Dropbox. Creating it now.")
-            dbx.files_upload("", dropbox_file_path)
+            dbx.files_upload(b"", dropbox_file_path)  # Upload an empty bytes object
             print(f"Successfully created empty file '{file_name}' in Dropbox.")
         else:
             raise
