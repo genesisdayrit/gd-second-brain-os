@@ -30,6 +30,13 @@ central_time = timezone(timedelta(hours=-5))  # Central Time is UTC-5
 target_datetime = datetime(2024, 8, 11, 15, 0, tzinfo=central_time)
 target_datetime_utc = target_datetime.astimezone(timezone.utc)
 
+# Get the database name for creating a subfolder
+database_name = notion.databases.retrieve(notion_knowledge_hub_db)['title'][0]['plain_text']
+
+# Ensure the destination path exists
+destination_path = Path('database-extractions') / database_name
+destination_path.mkdir(parents=True, exist_ok=True)
+
 # Function to fetch blocks and parse content recursively
 def fetch_and_parse_blocks(block_id, headers):
     blocks_url = f"https://api.notion.com/v1/blocks/{block_id}/children"
@@ -179,8 +186,9 @@ for page in notion.databases.query(
 timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
 json_filename = f'extracted_content_{timestamp}.json'
 
-# Save the results to a JSON file
-with open(json_filename, 'w') as json_file:
+# Save the results to a JSON file in the destination path
+json_filepath = destination_path / json_filename
+with open(json_filepath, 'w') as json_file:
     json.dump(results, json_file, indent=4)
 
-print(f"JSON file created: {json_filename}")
+print(f"JSON file created: {json_filepath}")
