@@ -1,2 +1,4 @@
 .env
 venv/
+
+/notion-api/tests/database-extractions/*

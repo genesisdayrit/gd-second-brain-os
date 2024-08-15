@@ -4,6 +4,7 @@ import requests
 from dotenv import load_dotenv
 from pathlib import Path
 from notion_client import Client
+from datetime import datetime, timezone, timedelta
 
 # Define the path to the .env file relative to the script's location
 env_path = Path(__file__).resolve().parent.parent / '.env'
@@ -23,6 +24,11 @@ if not notion_knowledge_hub_db:
 
 # Initialize Notion client
 notion = Client(auth=notion_api_key)
+
+# Convert the target date and time to UTC for comparison
+central_time = timezone(timedelta(hours=-5))  # Central Time is UTC-5
+target_datetime = datetime(2024, 8, 11, 15, 0, tzinfo=central_time)
+target_datetime_utc = target_datetime.astimezone(timezone.utc)
 
 # Function to fetch blocks and parse content recursively
 def fetch_and_parse_blocks(block_id, headers):
@@ -141,16 +147,22 @@ headers = {
     "Content-Type": "application/json"
 }
 
+# Query the Notion database with a filter based on Created time
 for page in notion.databases.query(
     **{
         "database_id": notion_knowledge_hub_db,
+        "filter": {
+            "property": "Created",
+            "date": {
+                "after": target_datetime_utc.isoformat()
+            }
+        },
         "sorts": [
             {
                 "property": "Created",
                 "direction": "descending"
             }
-        ],
-        "page_size": 1
+        ]
     }
 )["results"]:
     title = page['properties']['Name']['title'][0]['plain_text']
@@ -163,6 +175,12 @@ for page in notion.databases.query(
         "content": content
     })
 
-# Return the results as JSON
-json_output = json.dumps(results, indent=4)
-print(json_output)
+# Generate a filename with a timestamp
+timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+json_filename = f'extracted_content_{timestamp}.json'
+
+# Save the results to a JSON file
+with open(json_filename, 'w') as json_file:
+    json.dump(results, json_file, indent=4)
+
+print(f"JSON file created: {json_filename}")
