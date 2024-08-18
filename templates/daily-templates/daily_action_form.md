@@ -57,6 +57,12 @@ Let's reflect {name}, how well did you execute towards your objectives today on 
 
 ---
 
+##### Vision objective #1:
+Imagine you only have 1 hour tomorrow to fulfill your life’s mission, what one thing could you do to be satisfied with the day? Add a start and end time for when you will commit to doing this.
+
+- 
+
+
 ##### Vision objective #2:
 - 
 
