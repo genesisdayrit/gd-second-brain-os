@@ -1,7 +1,3 @@
-**(This is done on an external form like Typeform and then integrated with second brain system under "Weekly Maps" directory or database)**
-
-Below is what the Typeform questions look like. Each line-break is a distinct input page from the actual Typeform.
-
 # Actual Typeform
 
 ---
