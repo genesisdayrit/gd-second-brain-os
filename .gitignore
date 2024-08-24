@@ -2,3 +2,5 @@
 venv/
 
 /notion-api/tests/database-extractions/*
+
+*.log
