@@ -226,6 +226,10 @@ def main():
         url = page['properties']['URL']['url'] if 'URL' in page['properties'] else None
         content = fetch_and_parse_blocks(page['id'], headers)
         
+        # Get the creation date from Notion
+        created_time = datetime.fromisoformat(page['created_time'].rstrip('Z'))
+        formatted_date = created_time.strftime("%b %-d, %Y")  # Format: Aug 24, 2024 or Aug 3, 2024
+        
         filename = sanitize_filename(title) + '.md'
         full_path = output_path / filename
 
@@ -234,9 +238,23 @@ def main():
             print(f"File '{filename}' already exists. Skipping.")
             continue
 
-        markdown_content = f"# {title}\n\n"
-        if url:
-            markdown_content += f"Source: {url}\n\n"
+        # Prepare the Markdown content with Obsidian properties
+        markdown_content = f"""---
+Journal: 
+  - "[[{formatted_date}]]"
+created time: {datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%f%z')}
+modified time: {datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%f%z')}
+key words: 
+People: 
+URL: {url if url else ''}
+Notes+Ideas: 
+Experiences: 
+Tags: 
+---
+
+## {title}
+
+"""
         markdown_content += content
 
         with open(full_path, 'w', encoding='utf-8') as md_file:
