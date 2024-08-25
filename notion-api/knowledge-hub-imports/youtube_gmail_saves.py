@@ -10,11 +10,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-credentials_path = os.getenv('GDRIVE_CREDENTIALS_PATH')
+credentials_path = os.getenv('GMAIL_CREDENTIALS_PATH')
 print(f"Credentials Path: {credentials_path}")
 
 if not credentials_path:
-    raise ValueError("Environment variable GDRIVE_CREDENTIALS_PATH must be set")
+    raise ValueError("Environment variable GMAIL_CREDENTIALS_PATH must be set")
 
 SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
 
