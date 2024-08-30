@@ -240,7 +240,7 @@ def main():
         try:
             title = page['properties']['Name']['title'][0]['plain_text']
             url = page['properties']['URL']['url'] if 'URL' in page['properties'] else None
-            content = fetch_and_parse_blocks(page['id'], headers)
+            content = fetch_and_parse_blocks(page['id'], headers)  # Pass headers to the function
             
             created_time = datetime.fromisoformat(page['created_time'].rstrip('Z'))
             formatted_date = created_time.strftime("%b %-d, %Y")
