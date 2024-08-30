@@ -7,6 +7,7 @@ from notion_client import Client
 from datetime import datetime, timezone, timedelta
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
+import logging
 
 # Define the path to the .env file relative to the script's location
 env_path = Path(__file__).resolve().parent.parent.parent / '.env'
@@ -27,6 +28,10 @@ SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 # Obsidian Knowledge Hub path
 OBSIDIAN_KNOWLEDGE_HUB_PATH = os.getenv('OBSIDIAN_KNOWLEDGE_HUB_PATH')
 
+# Set up logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger()
+
 # Ensure all required environment variables are set
 required_env_vars = [
     'NOTION_API_KEY', 'NOTION_KNOWLEDGE_HUB_DB', 'GDRIVE_CREDENTIALS_PATH',
@@ -34,6 +39,7 @@ required_env_vars = [
 ]
 for var in required_env_vars:
     if not os.getenv(var):
+        logger.error(f"{var} environment variable is not set.")
         raise ValueError(f"{var} environment variable is not set.")
 
 # Initialize Notion client
@@ -49,8 +55,7 @@ def get_sheets_service():
     return build('sheets', 'v4', credentials=creds)
 
 def get_last_run_timestamp():
-    print(f"GOOGLE_SPREADSHEET_ID: {GOOGLE_SPREADSHEET_ID}")
-    print(f"GOOGLE_SHEET_NAME: {GOOGLE_SHEET_NAME}")
+    logger.info("Fetching last run timestamp from Google Sheets.")
     service = get_sheets_service()
     result = service.spreadsheets().values().get(
         spreadsheetId=GOOGLE_SPREADSHEET_ID,
@@ -58,12 +63,13 @@ def get_last_run_timestamp():
     ).execute()
     values = result.get('values', [])
     if not values:
+        logger.warning("No timestamps found in Google Sheets. Defaulting to 24 hours ago.")
         return None
     last_timestamp = values[-1][0]
-    # Parse the date string using the correct format
     return datetime.strptime(last_timestamp, '%m/%d/%Y %H:%M:%S').replace(tzinfo=timezone.utc)
 
 def update_run_timestamp():
+    logger.info("Updating run timestamp in Google Sheets.")
     service = get_sheets_service()
     now = datetime.now(timezone.utc).strftime('%m/%d/%Y %H:%M:%S')
     service.spreadsheets().values().append(
@@ -73,46 +79,50 @@ def update_run_timestamp():
         insertDataOption='INSERT_ROWS',
         body={'values': [[now]]}
     ).execute()
-    print(f"Timestamp updated: {now}")
+    logger.info(f"Timestamp updated: {now}")
 
 # Notion parsing functions
 def fetch_and_parse_blocks(block_id, headers):
-    blocks_url = f"https://api.notion.com/v1/blocks/{block_id}/children"
-    response = requests.get(blocks_url, headers=headers)
-    response.raise_for_status()
-    data_blocks = response.json()
+    try:
+        blocks_url = f"https://api.notion.com/v1/blocks/{block_id}/children"
+        response = requests.get(blocks_url, headers=headers)
+        response.raise_for_status()
+        data_blocks = response.json()
 
-    markdown_content = ""
-    for block in data_blocks["results"]:
-        block_type = block["type"]
+        markdown_content = ""
+        for block in data_blocks["results"]:
+            block_type = block["type"]
 
-        if block_type == "paragraph":
-            markdown_content += parse_paragraph(block)
-        elif block_type.startswith("heading_"):
-            markdown_content += parse_heading(block, block_type)
-        elif block_type == "bulleted_list_item":
-            markdown_content += parse_list_item(block, "- ", 0)
-        elif block_type == "numbered_list_item":
-            markdown_content += parse_list_item(block, "1. ", 0)
-        elif block_type == "to_do":
-            markdown_content += parse_to_do(block)
-        elif block_type == "quote":
-            markdown_content += parse_quote(block)
-        elif block_type == "code":
-            markdown_content += parse_code(block)
-        elif block_type == "divider":
-            markdown_content += "---\n"
-        elif block_type == "image":
-            markdown_content += parse_image(block)
-        elif block_type == "callout":
-            markdown_content += parse_callout(block)
-        elif block_type == "toggle":
-            markdown_content += parse_toggle(block)
+            if block_type == "paragraph":
+                markdown_content += parse_paragraph(block)
+            elif block_type.startswith("heading_"):
+                markdown_content += parse_heading(block, block_type)
+            elif block_type == "bulleted_list_item":
+                markdown_content += parse_list_item(block, "- ", 0)
+            elif block_type == "numbered_list_item":
+                markdown_content += parse_list_item(block, "1. ", 0)
+            elif block_type == "to_do":
+                markdown_content += parse_to_do(block)
+            elif block_type == "quote":
+                markdown_content += parse_quote(block)
+            elif block_type == "code":
+                markdown_content += parse_code(block)
+            elif block_type == "divider":
+                markdown_content += "---\n"
+            elif block_type == "image":
+                markdown_content += parse_image(block)
+            elif block_type == "callout":
+                markdown_content += parse_callout(block)
+            elif block_type == "toggle":
+                markdown_content += parse_toggle(block)
 
-        if block.get("has_children"):
-            markdown_content += fetch_and_parse_blocks(block["id"], headers)
+            if block.get("has_children"):
+                markdown_content += fetch_and_parse_blocks(block["id"], headers)
 
-    return markdown_content
+        return markdown_content
+    except Exception as e:
+        logger.error(f"Error parsing blocks for block ID {block_id}: {e}")
+        return ""
 
 def parse_paragraph(block):
     text = extract_text(block["paragraph"]["rich_text"])
@@ -122,6 +132,10 @@ def parse_heading(block, block_type):
     text = extract_text(block[block_type]["rich_text"])
     level = block_type.split("_")[-1]
     return f"{'#' * int(level)} {text}\n\n"
+
+def parse_image(block):
+    image_url = block["image"].get("file", {}).get("url", block["image"].get("external", {}).get("url", ""))
+    return f"![Image]({image_url})\n\n"
 
 def parse_list_item(block, prefix, indent_level):
     text = extract_text(block[block["type"]]["rich_text"])
@@ -142,10 +156,6 @@ def parse_code(block):
     code = block["code"]["rich_text"][0]["text"]["content"]
     language = block["code"].get("language", "")
     return f"```{language}\n{code}\n```\n\n"
-
-def parse_image(block):
-    image_url = block["image"].get("file", {}).get("url", block["image"].get("external", {}).get("url", ""))
-    return f"![Image]({image_url})\n\n"
 
 def parse_callout(block):
     icon = block["callout"].get("icon", {}).get("emoji", "")
@@ -186,11 +196,7 @@ def sanitize_filename(title):
 
 # Main execution
 def main():
-    print(f"NOTION_API_KEY: {NOTION_API_KEY[:5]}...{NOTION_API_KEY[-5:]}")  # Print first and last 5 characters
-    print(f"NOTION_KNOWLEDGE_HUB_DB: {NOTION_KNOWLEDGE_HUB_DB}")
-    print(f"GOOGLE_SPREADSHEET_ID: {GOOGLE_SPREADSHEET_ID}")
-    print(f"GOOGLE_SHEET_NAME: {GOOGLE_SHEET_NAME}")
-
+    logger.info("Starting Notion to Obsidian sync script.")
     headers = {
         "Authorization": f"Bearer {NOTION_API_KEY}",
         "Notion-Version": "2022-06-28",
@@ -199,47 +205,55 @@ def main():
 
     last_run_timestamp = get_last_run_timestamp()
     if not last_run_timestamp:
-        print("No previous run timestamp found. Using default (24 hours ago).")
         last_run_timestamp = datetime.now(timezone.utc) - timedelta(days=1)
 
-    print(f"Processing pages created after: {last_run_timestamp}")
+    logger.info(f"Processing pages created after: {last_run_timestamp}")
+
+    skipped_files_due_to_existence = []
+    skipped_files_due_to_error = []
+
+    try:
+        pages = notion.databases.query(
+            **{
+                "database_id": NOTION_KNOWLEDGE_HUB_DB,
+                "filter": {
+                    "property": "Created",
+                    "date": {
+                        "after": last_run_timestamp.isoformat()
+                    }
+                },
+                "sorts": [
+                    {
+                        "property": "Created",
+                        "direction": "ascending"
+                    },
+                ],
+            }
+        )["results"]
+        logger.info(f"Total pages identified for migration: {len(pages)}")
+    except Exception as e:
+        logger.error(f"Failed to query Notion database: {e}")
+        return
 
     pages_processed = 0
-    for page in notion.databases.query(
-        **{
-            "database_id": NOTION_KNOWLEDGE_HUB_DB,
-            "filter": {
-                "property": "Created",
-                "date": {
-                    "after": last_run_timestamp.isoformat()
-                }
-            },
-            "sorts": [
-                {
-                    "property": "Created",
-                    "direction": "ascending"
-                },
-            ],
-        }
-    )["results"]:
-        title = page['properties']['Name']['title'][0]['plain_text']
-        url = page['properties']['URL']['url'] if 'URL' in page['properties'] else None
-        content = fetch_and_parse_blocks(page['id'], headers)
-        
-        # Get the creation date from Notion
-        created_time = datetime.fromisoformat(page['created_time'].rstrip('Z'))
-        formatted_date = created_time.strftime("%b %-d, %Y")  # Format: Aug 24, 2024 or Aug 3, 2024
-        
-        filename = sanitize_filename(title) + '.md'
-        full_path = output_path / filename
+    for page in pages:
+        try:
+            title = page['properties']['Name']['title'][0]['plain_text']
+            url = page['properties']['URL']['url'] if 'URL' in page['properties'] else None
+            content = fetch_and_parse_blocks(page['id'], headers)
+            
+            created_time = datetime.fromisoformat(page['created_time'].rstrip('Z'))
+            formatted_date = created_time.strftime("%b %-d, %Y")
+            
+            filename = sanitize_filename(title) + '.md'
+            full_path = output_path / filename
 
-        # Check if the file already exists
-        if full_path.exists():
-            print(f"File '{filename}' already exists. Skipping.")
-            continue
+            if full_path.exists():
+                logger.warning(f"File '{filename}' already exists. Skipping.")
+                skipped_files_due_to_existence.append(filename)
+                continue
 
-        # Prepare the Markdown content with Obsidian properties
-        markdown_content = f"""---
+            markdown_content = f"""---
 Journal: 
   - "[[{formatted_date}]]"
 created time: {datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%f%z')}
@@ -255,16 +269,31 @@ Tags:
 ## {title}
 
 """
-        markdown_content += content
+            markdown_content += content
 
-        with open(full_path, 'w', encoding='utf-8') as md_file:
-            md_file.write(markdown_content)
-        
-        print(f"Markdown file created: {full_path}")
-        pages_processed += 1
+            with open(full_path, 'w', encoding='utf-8') as md_file:
+                md_file.write(markdown_content)
 
-    print(f"Total pages processed: {pages_processed}")
+            logger.info(f"Markdown file created: {full_path}")
+            pages_processed += 1
+
+        except Exception as e:
+            logger.error(f"Error processing page {page['id']} ({title}): {e}")
+            skipped_files_due_to_error.append(filename)
+            continue
+
+    logger.info(f"Total pages processed: {pages_processed}")
+    
+    # Log files skipped due to existence
+    if skipped_files_due_to_existence:
+        logger.info(f"Files skipped due to existence: {', '.join(skipped_files_due_to_existence)}")
+
+    # Log files skipped due to errors
+    if skipped_files_due_to_error:
+        logger.info(f"Files skipped due to errors: {', '.join(skipped_files_due_to_error)}")
+
     update_run_timestamp()
 
 if __name__ == "__main__":
     main()
+
