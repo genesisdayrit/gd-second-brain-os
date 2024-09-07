@@ -176,10 +176,14 @@ for page in notion.databases.query(
     url = page['properties']['URL']['url'] if 'URL' in page['properties'] else None
     content = fetch_and_parse_blocks(page['id'], headers)
     
+    # Get the creation date from Notion
+    created_time = datetime.fromisoformat(page['created_time'].rstrip('Z'))
+    formatted_date = created_time.strftime("%b %-d, %Y")  # Format: Aug 24, 2024 or Aug 3, 2024
+    
     results.append({
         "title": title,
         "url": url,
-        "content": content
+        "content": f"---\nRelated Journal: [[{formatted_date}]]\n---\n\n{content}"
     })
 
 # Generate a filename with a timestamp
