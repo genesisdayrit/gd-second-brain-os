@@ -2,11 +2,27 @@ import os
 import sys
 from datetime import datetime, timedelta
 import dropbox
+import redis
 from dotenv import load_dotenv
 from pathlib import Path
 
 # Load environment variables from .env file
 load_dotenv()
+
+# Get Redis configuration from environment variables
+redis_host = os.getenv('REDIS_HOST', 'localhost')  # Default to 'localhost' if not set
+redis_port = int(os.getenv('REDIS_PORT', 6379))    # Default to 6379 if not set
+redis_password = os.getenv('REDIS_PASSWORD', None)  # Default to None if not set
+
+# Connect to Redis using the environment variables
+r = redis.Redis(host=redis_host, port=redis_port, password=redis_password, decode_responses=True)
+
+# Function to get the Dropbox access token from Redis
+def get_dropbox_access_token():
+    access_token = r.get('DROPBOX_ACCESS_TOKEN')
+    if not access_token:
+        raise EnvironmentError("Error: Dropbox access token not found in Redis.")
+    return access_token
 
 # Get the PROJECT_ROOT_PATH
 PROJECT_ROOT_PATH = os.getenv('PROJECT_ROOT_PATH')
@@ -19,8 +35,10 @@ if not PROJECT_ROOT_PATH:
 env_path = Path(PROJECT_ROOT_PATH) / '.env'
 load_dotenv(dotenv_path=env_path)
 
-# Initialize Dropbox client
-DROPBOX_ACCESS_TOKEN = os.getenv('DROPBOX_ACCESS_TOKEN')
+# Retrieve the Dropbox access token from Redis
+DROPBOX_ACCESS_TOKEN = get_dropbox_access_token()
+
+# Initialize Dropbox client using the token from Redis
 dbx = dropbox.Dropbox(DROPBOX_ACCESS_TOKEN)
 
 # The rest of the script remains unchanged
@@ -104,3 +122,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
