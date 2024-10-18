@@ -3,6 +3,7 @@ venv/
 
 /notion-api/tests/database-extractions/*
 
+cron_log/
 *.log
 credentials/
 token.pickle
