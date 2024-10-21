@@ -48,14 +48,24 @@ def find_daily_folder(vault_path):
             return entry.path_lower
     raise FileNotFoundError("Could not find a folder ending with '_Daily' in Dropbox")
 
-def fetch_last_journal_date(journal_folder_path):
-    response = dbx.files_list_folder(journal_folder_path)
-    journal_files = [entry.name for entry in response.entries if isinstance(entry, dropbox.files.FileMetadata)]
-    if not journal_files:
-        return None
-    return max(journal_files).split('.md')[0]
+def find_templates_folder(vault_path):
+    response = dbx.files_list_folder(vault_path)
+    for entry in response.entries:
+        if isinstance(entry, dropbox.files.FolderMetadata) and entry.name.endswith("_Templates"):
+            return entry.path_lower
+    raise FileNotFoundError("Could not find a folder ending with '_Templates' in the Obsidian vault")
 
-def create_journal_file(journal_folder_path):
+def get_template_content(templates_folder):
+    template_path = f"{templates_folder}/daily-templates/daily_note_properties.md"
+    try:
+        _, response = dbx.files_download(template_path)
+        return response.content.decode('utf-8')
+    except dropbox.exceptions.HttpError as e:
+        print(f"Error retrieving template: {e}")
+        print(f"Attempted to retrieve from path: {template_path}")
+        return ""
+
+def create_journal_file(journal_folder_path, vault_path):
     # Define timezone for Central Time
     central_tz = pytz.timezone('US/Central')
     now_central = datetime.now(central_tz)
@@ -71,8 +81,17 @@ def create_journal_file(journal_folder_path):
     except dropbox.exceptions.ApiError as e:
         if isinstance(e.error, dropbox.files.GetMetadataError):
             print(f"File '{file_name}' does not exist in Dropbox. Creating it now.")
-            dbx.files_upload(b"", dropbox_file_path)  # Upload an empty bytes object
-            print(f"Successfully created file '{file_name}' in Dropbox.")
+            
+            # Find template folder and get template content
+            templates_folder = find_templates_folder(vault_path)
+            template_content = get_template_content(templates_folder)
+            
+            # Replace placeholders in the template
+            filled_template = template_content.replace('{{date}}', formatted_date)
+            
+            # Upload the file with the filled template
+            dbx.files_upload(filled_template.encode('utf-8'), dropbox_file_path)
+            print(f"Successfully created file '{file_name}' in Dropbox using the template.")
         else:
             raise
 
@@ -81,14 +100,14 @@ def main():
     if not dropbox_vault_path:
         print("Error: DROPBOX_OBSIDIAN_VAULT_PATH environment variable not set")
         return
-
     try:
         daily_folder_path = find_daily_folder(dropbox_vault_path)
         journal_folder_path = f"{daily_folder_path}/_Journal"
-        create_journal_file(journal_folder_path)
+        create_journal_file(journal_folder_path, dropbox_vault_path)
     except FileNotFoundError as e:
         print(f"Error: {e}")
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
 
 if __name__ == "__main__":
     main()
-
