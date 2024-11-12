@@ -1,33 +1,39 @@
 import os
-import sys
+import dropbox
 from datetime import datetime, timedelta
 import pytz
-import dropbox
 import redis
 from dotenv import load_dotenv
 from pathlib import Path
 
-# Load the PROJECT_ROOT_PATH from environment and set up .env path
-PROJECT_ROOT_PATH = os.getenv('PROJECT_ROOT_PATH')
-if not PROJECT_ROOT_PATH:
-    raise EnvironmentError("Error: PROJECT_ROOT_PATH environment variable not set")
+# Load environment variables from .env file
+load_dotenv()
 
-# Load environment variables from .env file in PROJECT_ROOT_PATH
-env_path = Path(PROJECT_ROOT_PATH) / '.env'
-load_dotenv(dotenv_path=env_path)
+# Get Redis configuration from environment variables
+redis_host = os.getenv('REDIS_HOST', 'localhost')  # Default to 'localhost' if not set
+redis_port = int(os.getenv('REDIS_PORT', 6379))    # Default to 6379 if not set
+redis_password = os.getenv('REDIS_PASSWORD', None)  # Default to None if not set
 
-# Set up Redis connection using environment variables
-redis_host = os.getenv('REDIS_HOST', 'localhost')
-redis_port = int(os.getenv('REDIS_PORT', 6379))
-redis_password = os.getenv('REDIS_PASSWORD', None)
-redis_client = redis.Redis(host=redis_host, port=redis_port, password=redis_password, decode_responses=True)
+# Connect to Redis using the environment variables
+r = redis.Redis(host=redis_host, port=redis_port, password=redis_password, decode_responses=True)
 
-# Function to retrieve Dropbox access token from Redis
+# Function to get the Dropbox access token from Redis
 def get_dropbox_access_token():
-    access_token = redis_client.get('DROPBOX_ACCESS_TOKEN')
+    access_token = r.get('DROPBOX_ACCESS_TOKEN')
     if not access_token:
         raise EnvironmentError("Error: Dropbox access token not found in Redis.")
     return access_token
+
+# Get the PROJECT_ROOT_PATH
+PROJECT_ROOT_PATH = os.getenv('PROJECT_ROOT_PATH')
+
+# Ensure the PROJECT_ROOT_PATH is set
+if not PROJECT_ROOT_PATH:
+    raise EnvironmentError("Error: PROJECT_ROOT_PATH environment variable not set")
+
+# Construct the path to the .env file and load it
+env_path = Path(PROJECT_ROOT_PATH) / '.env'
+load_dotenv(dotenv_path=env_path)
 
 # Retrieve the Dropbox access token from Redis
 DROPBOX_ACCESS_TOKEN = get_dropbox_access_token()
@@ -35,20 +41,21 @@ DROPBOX_ACCESS_TOKEN = get_dropbox_access_token()
 # Initialize Dropbox client using the token from Redis
 dbx = dropbox.Dropbox(DROPBOX_ACCESS_TOKEN)
 
-def find_weekly_folder(base_path):
-    """Finds the folder ending with '_Weekly' in the base path."""
-    for item in os.listdir(base_path):
-        if item.endswith("_Weekly") and os.path.isdir(os.path.join(base_path, item)):
-            return item
-    raise FileNotFoundError("Could not find a folder ending with '_Weekly'")
+def find_weekly_folder(vault_path):
+    """Search for the '_Weekly' folder in the specified vault path."""
+    response = dbx.files_list_folder(vault_path)
+    for entry in response.entries:
+        if isinstance(entry, dropbox.files.FolderMetadata) and entry.name.endswith("_Weekly"):
+            return entry.path_lower
+    raise FileNotFoundError("Could not find a folder ending with '_Weekly' in Dropbox")
 
-def get_next_sunday():
-    """Calculates the date for the Sunday after the upcoming Sunday."""
-    today = datetime.now(pytz.timezone('US/Central'))
-    days_until_sunday = (6 - today.weekday()) % 7  # Calculate days until the next Sunday
-    next_sunday = today + timedelta(days=days_until_sunday)
-    sunday_after_next = next_sunday + timedelta(days=7)
-    return sunday_after_next.strftime("%Y-%m-%d")
+def find_templates_folder(vault_path):
+    """Search for the '_Templates' folder inside the specified vault path."""
+    response = dbx.files_list_folder(vault_path)
+    for entry in response.entries:
+        if isinstance(entry, dropbox.files.FolderMetadata) and entry.name.endswith("_Templates"):
+            return entry.path_lower
+    raise FileNotFoundError("Could not find a folder ending with '_Templates' in the Obsidian vault")
 
 def get_template_content(templates_folder):
     """Retrieves the content of the weekly map template."""
@@ -61,52 +68,57 @@ def get_template_content(templates_folder):
         print(f"Attempted to retrieve from path: {template_path}")
         return ""
 
-def create_weekly_map_file(file_path, title_date, template_content):
+def create_weekly_map_file(weekly_maps_folder_path, title_date, template_content):
     """Creates a Weekly Map file with the provided template content if it does not already exist."""
     file_name = f"Weekly Map {title_date}.md"
-    full_file_path = os.path.join(file_path, file_name)
+    dropbox_file_path = f"{weekly_maps_folder_path}/{file_name}"
 
-    # Check if the file already exists
-    if os.path.exists(full_file_path):
-        print(f"File '{file_name}' already exists. Skipping creation.")
-        return
-
-    # Create the file with template content
     try:
-        with open(full_file_path, 'w') as file:
-            file.write(template_content)
-        print(f"Successfully created file '{file_name}' with template content.")
-    except IOError as e:
-        print(f"Error creating file: {e}")
+        # Check if the file already exists
+        dbx.files_get_metadata(dropbox_file_path)
+        print(f"Weekly map file for '{title_date}' already exists. No new file created.")
+    except dropbox.exceptions.ApiError as e:
+        if isinstance(e.error, dropbox.files.GetMetadataError):
+            print(f"File '{file_name}' does not exist in Dropbox. Creating it now.")
+            # Upload the file with the content from the template
+            dbx.files_upload(template_content.encode('utf-8'), dropbox_file_path)
+            print(f"Successfully created weekly map file '{file_name}' in Dropbox.")
+        else:
+            raise
 
 def main():
-    # Retrieve paths from environment variables
-    base_path = os.getenv('OBSIDIAN_VAULT_BASE_PATH')
-    templates_folder = os.getenv('TEMPLATES_FOLDER_PATH')
-    
-    if not base_path or not templates_folder:
-        print("Error: Required environment variables (OBSIDIAN_VAULT_BASE_PATH or TEMPLATES_FOLDER_PATH) not set.")
-        sys.exit(1)
+    # Retrieve Dropbox Obsidian vault path from environment variable
+    dropbox_vault_path = os.getenv('DROPBOX_OBSIDIAN_VAULT_PATH')
+    if not dropbox_vault_path:
+        print("Error: DROPBOX_OBSIDIAN_VAULT_PATH environment variable not set")
+        return
 
     try:
         # Find the '_Weekly' folder and then the '_Weekly-Maps' subfolder
-        weekly_folder = find_weekly_folder(base_path)
-        weekly_maps_path = os.path.join(base_path, weekly_folder, "_Weekly-Maps")
-        
-        if not os.path.exists(weekly_maps_path):
-            raise FileNotFoundError("'_Weekly-Maps' subfolder not found")
+        weekly_folder_path = find_weekly_folder(dropbox_vault_path)
+        weekly_maps_folder_path = f"{weekly_folder_path}/_Weekly-Maps"
+
+        # Find the '_Templates' folder
+        templates_folder_path = find_templates_folder(dropbox_vault_path)
+
+        # Retrieve the template content from the '_Templates' folder
+        template_content = get_template_content(templates_folder_path)
+
+        # Calculate the title date for the file (Sunday after the upcoming Sunday)
+        central_tz = pytz.timezone('US/Central')
+        today = datetime.now(central_tz)
+        days_until_sunday = (6 - today.weekday()) % 7
+        next_sunday = today + timedelta(days=days_until_sunday)
+        sunday_after_next = next_sunday + timedelta(days=7)
+        title_date = sunday_after_next.strftime("%Y-%m-%d")
+
+        # Create the Weekly Map file with the template content
+        create_weekly_map_file(weekly_maps_folder_path, title_date, template_content)
+
     except FileNotFoundError as e:
         print(f"Error: {e}")
-        sys.exit(1)
-
-    # Get the title date for the file
-    title_date = get_next_sunday()
-    
-    # Retrieve the template content
-    template_content = get_template_content(templates_folder)
-    
-    # Create the Weekly Map file with the template content
-    create_weekly_map_file(weekly_maps_path, title_date, template_content)
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
 
 if __name__ == "__main__":
     main()
