@@ -54,6 +54,10 @@ def get_sheets_service():
     creds = Credentials.from_service_account_file(GDRIVE_CREDENTIALS_PATH, scopes=SCOPES)
     return build('sheets', 'v4', credentials=creds)
 
+def print_sheet_url():
+    sheet_url = f"https://docs.google.com/spreadsheets/d/{GOOGLE_SPREADSHEET_ID}"
+    logger.info(f"Google Sheet URL: {sheet_url}")
+
 def get_last_run_timestamp():
     logger.info("Fetching last run timestamp from Google Sheets.")
     service = get_sheets_service()
@@ -197,6 +201,10 @@ def sanitize_filename(title):
 # Main execution
 def main():
     logger.info("Starting Notion to Obsidian sync script.")
+    
+    # Print Google Sheet URL at the start
+    print_sheet_url()
+    
     headers = {
         "Authorization": f"Bearer {NOTION_API_KEY}",
         "Notion-Version": "2022-06-28",
@@ -296,4 +304,3 @@ Tags:
 
 if __name__ == "__main__":
     main()
-
