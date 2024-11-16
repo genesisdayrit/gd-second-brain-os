@@ -65,17 +65,6 @@ def find_journal_folder(daily_folder_path):
             return entry.path_lower
     raise FileNotFoundError("Could not find a folder ending with '_Journal' in Dropbox")
 
-def find_journal_folder(daily_folder_path):
-    """Search for the '_Journal' folder inside the '_Daily' folder."""
-    response = dbx.files_list_folder(daily_folder_path)
-    for entry in response.entries:
-        if isinstance(entry, dropbox.files.FolderMetadata) and entry.name.endswith("_Journal"):
-            return entry.path_lower
-    raise FileNotFoundError("Could not find a folder ending with '_Journal' in Dropbox")
-
-from datetime import datetime
-from pytz import timezone
-
 def fetch_today_journal_entry(journal_folder_path):
     """
     Fetch today's journal entry from the '_Journal' folder, assuming lowercase file names.
@@ -118,9 +107,10 @@ def get_essay_ideas_from_openai(journal_text):
     system_prompt = (
         "You are a thoughtful and creative writer who generates insightful essay ideas "
         "based on the content provided. Focus on drawing themes, patterns, and unique angles "
-        "from the provided text to create compelling essay topics."
+        "from the provided text to create compelling essay topics. For each essay idea, "
+        "provide a brief explanation of why it would be interesting to explore."
     )
-    user_prompt = f"Here is today's journal entry:\n\n{journal_text}\n\nPlease suggest essay ideas."
+    user_prompt = f"Here is today's journal entry:\n\n{journal_text}\n\nPlease suggest 3-5 essay ideas with brief explanations of why each would be worth exploring."
 
     completion = client.chat.completions.create(
         model="gpt-4o",
@@ -131,8 +121,40 @@ def get_essay_ideas_from_openai(journal_text):
     )
     return completion.choices[0].message.content
 
-def send_email(subject, essay_ideas, to_email, from_email, password):
-    """Send an email with the generated essay ideas."""
+def get_book_recommendations(journal_text):
+    """Generate book recommendations based on journal content using OpenAI GPT-4."""
+    client = OpenAI(api_key=openai_api_key)
+    system_prompt = (
+        "You are a knowledgeable bibliophile and literary curator with expertise across multiple "
+        "genres and fields. Your role is to recommend books that would enrich and expand upon "
+        "the themes, ideas, and questions present in the journal entry. Consider both classic "
+        "and contemporary works, and include fiction and non-fiction recommendations where appropriate. "
+        "For each book, explain specifically how it connects to the journal's content and what "
+        "unique perspective it might offer."
+    )
+    user_prompt = f"""Here is today's journal entry:
+
+{journal_text}
+
+Please provide 4-6 book recommendations based on the themes, questions, and topics present in this journal entry. For each book, include:
+1. Title and author
+2. A brief description of the book
+3. Specific explanation of why this book would be valuable given the journal's content
+4. What new perspectives or insights this book might offer
+
+Mix both classic and contemporary works, and consider both fiction and non-fiction where appropriate."""
+
+    completion = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ]
+    )
+    return completion.choices[0].message.content
+
+def send_email(subject, essay_ideas, book_recommendations, to_email, from_email, password):
+    """Send an email with the generated content."""
     try:
         # Set up the SMTP server
         s = smtplib.SMTP(host='smtp.gmail.com', port=587)
@@ -145,10 +167,26 @@ def send_email(subject, essay_ideas, to_email, from_email, password):
         msg['To'] = to_email
         msg['Subject'] = subject
 
-        # Format content
-        formatted_essay_ideas = f"<h3>Essay Ideas:</h3>{essay_ideas.replace('\n', '<br>')}"
-        message_body = formatted_essay_ideas
-        msg.attach(MIMEText(message_body, 'html'))
+        # Format content with HTML
+        html_content = f"""
+        <html>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <h2 style="color: #2c5282;">📝 Essay Ideas</h2>
+                    <div style="margin-bottom: 30px;">
+                        {essay_ideas.replace('\n\n', '</p><p>').replace('\n', '<br>')}
+                    </div>
+                    
+                    <h2 style="color: #2c5282;">📚 Recommended Reading</h2>
+                    <div style="margin-bottom: 30px;">
+                        {book_recommendations.replace('\n\n', '</p><p>').replace('\n', '<br>')}
+                    </div>
+                </div>
+            </body>
+        </html>
+        """
+        
+        msg.attach(MIMEText(html_content, 'html'))
 
         # Send the message via the server
         s.send_message(msg)
@@ -175,16 +213,18 @@ def main():
         # Fetch today's journal entry
         journal_text = fetch_today_journal_entry(journal_folder_path)
 
-        # Generate essay ideas
+        # Generate separate recommendations
         essay_ideas = get_essay_ideas_from_openai(journal_text)
+        book_recommendations = get_book_recommendations(journal_text)
 
         # Current date in mm/dd/yyyy format
         current_date = datetime.now().strftime("%m/%d/%Y")
 
         # Send the email
         send_email(
-            subject=f"Essay Ideas from Today's Journal ({current_date})",
+            subject=f"Daily Reflection: Essay Ideas & Reading List ({current_date})",
             essay_ideas=essay_ideas,
+            book_recommendations=book_recommendations,
             to_email=to_email,
             from_email=from_email,
             password=password
@@ -196,4 +236,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
