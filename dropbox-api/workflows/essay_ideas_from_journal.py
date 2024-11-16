@@ -172,12 +172,12 @@ def send_email(subject, essay_ideas, book_recommendations, to_email, from_email,
         <html>
             <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
                 <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-                    <h2 style="color: #2c5282;">📝 Essay Ideas</h2>
+                    <h2 style="color: #2c5282;">Essay Ideas</h2>
                     <div style="margin-bottom: 30px;">
                         {essay_ideas.replace('\n\n', '</p><p>').replace('\n', '<br>')}
                     </div>
                     
-                    <h2 style="color: #2c5282;">📚 Recommended Reading</h2>
+                    <h2 style="color: #2c5282;">Recommended Reading</h2>
                     <div style="margin-bottom: 30px;">
                         {book_recommendations.replace('\n\n', '</p><p>').replace('\n', '<br>')}
                     </div>
