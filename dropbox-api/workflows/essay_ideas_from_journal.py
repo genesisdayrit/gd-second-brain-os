@@ -222,7 +222,7 @@ def main():
 
         # Send the email
         send_email(
-            subject=f"Daily Reflection: Essay Ideas & Reading List ({current_date})",
+            subject=f"Essay Ideas & Reading List ({current_date})",
             essay_ideas=essay_ideas,
             book_recommendations=book_recommendations,
             to_email=to_email,
