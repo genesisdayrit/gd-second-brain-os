@@ -75,7 +75,7 @@ def fetch_today_journal_entry(journal_folder_path):
 
     # Current time in Eastern Time and UTC
     now_eastern = datetime.now(eastern)
-    today_date = now_eastern.strftime("%b %d, %Y").lower()  # e.g., "nov 15, 2024"
+    today_date = now_eastern.strftime("%b %-d, %Y").lower()  # e.g., "nov 15, 2024"
 
     # List all files in the folder
     result = dbx.files_list_folder(journal_folder_path)

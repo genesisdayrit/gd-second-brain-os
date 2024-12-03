@@ -78,41 +78,45 @@ def extract_section(file_contents):
 
 def find_weekly_map(vault_path):
     """Locate and extract the content of this week's map."""
-    def find_weekly_folder():
-        response = dbx.files_list_folder(vault_path)
-        for entry in response.entries:
-            if isinstance(entry, dropbox.files.FolderMetadata) and entry.name.endswith("_Weekly"):
-                return entry.path_lower
-        raise FileNotFoundError("Could not find a folder ending with '_Weekly' in Dropbox")
+    try:
+        def find_weekly_folder():
+            response = dbx.files_list_folder(vault_path)
+            for entry in response.entries:
+                if isinstance(entry, dropbox.files.FolderMetadata) and entry.name.endswith("_Weekly"):
+                    return entry.path_lower
+            raise FileNotFoundError("Could not find a folder ending with '_Weekly' in Dropbox")
 
-    def find_weekly_maps_folder(weekly_folder_path):
-        response = dbx.files_list_folder(weekly_folder_path)
-        for entry in response.entries:
-            if isinstance(entry, dropbox.files.FolderMetadata) and entry.name.endswith("_Weekly-Maps"):
-                return entry.path_lower
-        raise FileNotFoundError("Could not find a folder ending with '_Weekly-Maps' in Dropbox")
+        def find_weekly_maps_folder(weekly_folder_path):
+            response = dbx.files_list_folder(weekly_folder_path)
+            for entry in response.entries:
+                if isinstance(entry, dropbox.files.FolderMetadata) and entry.name.endswith("_Weekly-Maps"):
+                    return entry.path_lower
+            raise FileNotFoundError("Could not find a folder ending with '_Weekly-Maps' in Dropbox")
 
-    def find_this_weeks_map(files):
-        today = datetime.now()
-        days_until_sunday = (6 - today.weekday()) % 7
-        next_sunday = today + timedelta(days=days_until_sunday)
-        sunday_str = next_sunday.strftime("%Y-%m-%d").lower()
-        for file in files:
-            if isinstance(file, dropbox.files.FileMetadata) and f"weekly map {sunday_str}" in file.name.lower():
-                return file
-        raise FileNotFoundError("Could not find this week's map.")
+        def find_this_weeks_map(files):
+            today = datetime.now()
+            days_until_sunday = (6 - today.weekday()) % 7
+            next_sunday = today + timedelta(days=days_until_sunday)
+            sunday_str = next_sunday.strftime("%Y-%m-%d").lower()
+            for file in files:
+                if isinstance(file, dropbox.files.FileMetadata) and f"weekly map {sunday_str}" in file.name.lower():
+                    return file
+            raise FileNotFoundError("Could not find this week's map.")
 
-    weekly_folder_path = find_weekly_folder()
-    weekly_maps_folder_path = find_weekly_maps_folder(weekly_folder_path)
+        weekly_folder_path = find_weekly_folder()
+        weekly_maps_folder_path = find_weekly_maps_folder(weekly_folder_path)
 
-    files = [
-        entry for entry in dbx.files_list_folder(weekly_maps_folder_path).entries
-        if isinstance(entry, dropbox.files.FileMetadata)
-    ]
-    weekly_map_file = find_this_weeks_map(files)
+        files = [
+            entry for entry in dbx.files_list_folder(weekly_maps_folder_path).entries
+            if isinstance(entry, dropbox.files.FileMetadata)
+        ]
+        weekly_map_file = find_this_weeks_map(files)
 
-    _, response = dbx.files_download(weekly_map_file.path_lower)
-    return response.content.decode('utf-8')
+        _, response = dbx.files_download(weekly_map_file.path_lower)
+        return response.content.decode('utf-8')
+    except FileNotFoundError:
+        print("Weekly map not found. Proceeding without it.")
+        return None  # Return None if the weekly map is not found
 
 def get_openai_response(combined_text):
     """Get a response from OpenAI using the combined text."""
@@ -177,6 +181,8 @@ def main():
 
         # Fetch weekly map content
         weekly_map_content = find_weekly_map(dropbox_vault_path)
+        if weekly_map_content is None:
+            weekly_map_content = "Weekly map not available."  # Fallback content
 
         # Get OpenAI response
         ai_response = get_openai_response(extracted_text)
