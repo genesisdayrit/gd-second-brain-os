@@ -1,6 +1,6 @@
 import os
 import dropbox
-from datetime import datetime
+from datetime import datetime, timedelta
 import redis
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -69,11 +69,14 @@ def find_journal_folder(daily_folder_path):
             return entry.path_lower
     raise FileNotFoundError("Could not find a folder ending with '_Journal' in Dropbox")
 
-def fetch_today_journal_entry(journal_folder_path):
-    """Fetch today's journal entry from the '_Journal' folder."""
+def fetch_yesterday_journal_entry(journal_folder_path):
+    """Fetch yesterday's journal entry from the '_Journal' folder."""
     eastern = timezone('US/Eastern')
     now_eastern = datetime.now(eastern)
-    today_date = now_eastern.strftime("%b %-d, %Y").lower()  # e.g., "dec 10, 2024"
+
+    # Calculate the previous day
+    yesterday = now_eastern - timedelta(days=1)
+    yesterday_date = yesterday.strftime("%b %-d, %Y").lower()  # e.g., "dec 9, 2024"
 
     # List all files in the folder
     result = dbx.files_list_folder(journal_folder_path)
@@ -88,21 +91,21 @@ def fetch_today_journal_entry(journal_folder_path):
             break
         result = dbx.files_list_folder_continue(result.cursor)
 
-    # Search for today's file
+    # Search for yesterday's file
     for entry in all_files:
         file_name = entry.name.strip().lower()  # Ensure lowercase
-        if file_name == f"{today_date}.md":  # Match today's file
+        if file_name == f"{yesterday_date}.md":  # Match yesterday's file
             # Download and return the file contents
             metadata, response = dbx.files_download(entry.path_lower)
             return response.content.decode('utf-8')
 
     # Raise an error if no match is found
-    raise FileNotFoundError(f"Today's journal entry ({today_date}) not found in the '_Journal' folder.")
+    raise FileNotFoundError(f"Yesterday's journal entry ({yesterday_date}) not found in the '_Journal' folder.")
 
 def get_tweet_ideas_from_openai(journal_text, system_prompt, style_description):
-    """Generate tweet ideas from today's journal text using OpenAI GPT-4."""
+    """Generate tweet ideas from journal text using OpenAI GPT-4."""
     client = OpenAI(api_key=openai_api_key)
-    user_prompt = f"""here is today's journal entry:
+    user_prompt = f"""here is yesterday's journal entry:
 
 {journal_text}
 
@@ -170,8 +173,8 @@ def main():
         daily_folder_path = find_daily_folder(dropbox_vault_path)
         journal_folder_path = find_journal_folder(daily_folder_path)
 
-        # Fetch today's journal entry
-        journal_text = fetch_today_journal_entry(journal_folder_path)
+        # Fetch yesterday's journal entry
+        journal_text = fetch_yesterday_journal_entry(journal_folder_path)
 
         # Generate tweet ideas
         tweet_ideas = get_tweet_ideas_from_openai(journal_text, system_prompt, style_description)
