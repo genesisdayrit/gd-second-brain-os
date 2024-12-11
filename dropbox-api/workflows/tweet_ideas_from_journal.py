@@ -34,6 +34,25 @@ openai_api_key = os.getenv('OPENAI_API_KEY')
 # Initialize Dropbox client
 dbx = dropbox.Dropbox(DROPBOX_ACCESS_TOKEN)
 
+# Function to load prompts from an external file
+def load_prompts(prompt_file_path):
+    """Load system prompt and style description from an external file."""
+    if not os.path.exists(prompt_file_path):
+        raise FileNotFoundError(f"Prompt file not found: {prompt_file_path}")
+    
+    prompts = {}
+    with open(prompt_file_path, 'r') as file:
+        current_key = None
+        for line in file:
+            line = line.strip()
+            if line.endswith(":"):
+                current_key = line[:-1]
+                prompts[current_key] = ""
+            elif current_key:
+                prompts[current_key] += f"{line} "
+    
+    return prompts.get("SYSTEM_PROMPT", "").strip(), prompts.get("STYLE_DESCRIPTION", "").strip()
+
 def find_daily_folder(vault_path):
     """Search for the '_Daily' folder in the specified vault path."""
     response = dbx.files_list_folder(vault_path)
@@ -80,19 +99,14 @@ def fetch_today_journal_entry(journal_folder_path):
     # Raise an error if no match is found
     raise FileNotFoundError(f"Today's journal entry ({today_date}) not found in the '_Journal' folder.")
 
-def get_tweet_ideas_from_openai(journal_text):
+def get_tweet_ideas_from_openai(journal_text, system_prompt, style_description):
     """Generate tweet ideas from today's journal text using OpenAI GPT-4."""
     client = OpenAI(api_key=openai_api_key)
-    system_prompt = (
-        "you are a 'based' writer. you write in lowercase. your tone is edgy, spiky, entertaining, and polarizing. "
-        "you take innovative stances and write concise, engaging tweets that stand out. avoid emojis and hashtags. "
-        "every tweet should be punchy, thought-provoking, or downright audacious. no fluff, only vibes."
-    )
     user_prompt = f"""here is today's journal entry:
 
 {journal_text}
 
-generate 5-7 pithy tweet ideas that fit this style: edgy, innovative, entertaining, polarizing, and spiky. keep everything lowercase. avoid emojis and hashtags. make it impossible to ignore."""
+{style_description.strip()}"""
 
     completion = client.chat.completions.create(
         model="gpt-4o",
@@ -115,13 +129,16 @@ def send_email(subject, tweet_ideas, to_email, from_email, password):
         msg['To'] = to_email
         msg['Subject'] = subject
 
+        # Ensure proper spacing between tweet ideas
+        formatted_tweet_ideas = tweet_ideas.strip().replace('\n\n', '</p><p>').replace('\n', '<br>')
+
         html_content = f"""
         <html>
             <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
                 <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
                     <h2 style="color: #2c5282;">Tweet Ideas</h2>
                     <div style="margin-bottom: 30px;">
-                        {tweet_ideas.replace('\n\n', '</p><p>').replace('\n', '<br>')}
+                        <p>{formatted_tweet_ideas}</p>
                     </div>
                 </div>
             </body>
@@ -136,6 +153,7 @@ def send_email(subject, tweet_ideas, to_email, from_email, password):
 
 def main():
     dropbox_vault_path = os.getenv('DROPBOX_OBSIDIAN_VAULT_PATH')
+    prompt_file_path = "tweet_style_prompt.txt"
     from_email = os.getenv('GMAIL_ACCOUNT')
     password = os.getenv('GMAIL_PASSWORD')
     to_email = from_email  # or another recipient
@@ -145,6 +163,9 @@ def main():
         return
 
     try:
+        # Load prompts
+        system_prompt, style_description = load_prompts(prompt_file_path)
+
         # Locate folders
         daily_folder_path = find_daily_folder(dropbox_vault_path)
         journal_folder_path = find_journal_folder(daily_folder_path)
@@ -153,7 +174,7 @@ def main():
         journal_text = fetch_today_journal_entry(journal_folder_path)
 
         # Generate tweet ideas
-        tweet_ideas = get_tweet_ideas_from_openai(journal_text)
+        tweet_ideas = get_tweet_ideas_from_openai(journal_text, system_prompt, style_description)
         current_date = datetime.now().strftime("%m/%d/%Y")
 
         # Send the email
