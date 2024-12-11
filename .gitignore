@@ -8,3 +8,5 @@ logs/
 *.log
 credentials/
 token.pickle
+
+*tweet_style_prompt.txt
