@@ -156,13 +156,20 @@ def send_email(subject, tweet_ideas, to_email, from_email, password):
 
 def main():
     dropbox_vault_path = os.getenv('DROPBOX_OBSIDIAN_VAULT_PATH')
-    prompt_file_path = "tweet_style_prompt.txt"
+    prompt_base_path = os.getenv('PROMPT_FILE_PATH')  # Base path from environment variable
+    prompt_file_name = "tweet_style_prompt.txt"  # Specify the file name
+    prompt_file_path = os.path.join(prompt_base_path, prompt_file_name)  # Combine base path and file name
+
     from_email = os.getenv('GMAIL_ACCOUNT')
     password = os.getenv('GMAIL_PASSWORD')
     to_email = from_email  # or another recipient
 
     if not dropbox_vault_path:
         print("Error: DROPBOX_OBSIDIAN_VAULT_PATH environment variable not set")
+        return
+
+    if not prompt_base_path:
+        print("Error: PROMPT_FILE_PATH environment variable not set")
         return
 
     try:

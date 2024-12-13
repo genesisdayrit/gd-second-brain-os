@@ -9,4 +9,4 @@ logs/
 credentials/
 token.pickle
 
-*tweet_style_prompt.txt
+prompts/
