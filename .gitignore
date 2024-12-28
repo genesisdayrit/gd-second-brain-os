@@ -10,3 +10,5 @@ credentials/
 token.pickle
 
 prompts/
+
+ai-helpers/
