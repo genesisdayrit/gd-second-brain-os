@@ -1,6 +1,15 @@
 import os
 import json
 import urllib.parse
+from dotenv import load_dotenv
+
+# Load environment variables from the .env file in the project root
+project_root_path = os.getenv("PROJECT_ROOT_PATH")
+if not project_root_path:
+    raise EnvironmentError("Environment variable PROJECT_ROOT_PATH is not set.")
+
+dotenv_path = os.path.join(project_root_path, ".env")
+load_dotenv(dotenv_path)
 
 # Path to the JSON credentials file
 CREDENTIALS_PATH = os.getenv("GMAIL_CREDENTIALS_PATH")

@@ -10,7 +10,13 @@ from datetime import datetime, timezone
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 
-load_dotenv()
+# Load environment variables from the .env file in the project root
+project_root_path = os.getenv("PROJECT_ROOT_PATH")
+if not project_root_path:
+    raise EnvironmentError("Environment variable PROJECT_ROOT_PATH is not set.")
+
+dotenv_path = os.path.join(project_root_path, ".env")
+load_dotenv(dotenv_path)
 
 # Redis connection
 redis_client = redis.StrictRedis(host='localhost', port=6379, db=0, decode_responses=True)
@@ -92,17 +98,17 @@ def add_to_notion(title, url):
 
 
 def get_last_checked_timestamp():
-    """Retrieve the last checked timestamp from Redis."""
-    last_checked = redis_client.get("last_gmail_youtube_checked_at")
+    """Retrieve the last checked timestamp for YouTube Gmail from Redis."""
+    last_checked = redis_client.get("youtube_gmail_last_checked_at")
     if last_checked:
         return datetime.strptime(last_checked, '%Y-%m-%dT%H:%M:%S%z')
     return None
 
 
 def update_checked_timestamp():
-    """Update the last checked timestamp in Redis."""
+    """Update the last checked timestamp for YouTube Gmail in Redis."""
     now = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S%z')
-    redis_client.set("last_gmail_youtube_checked_at", now)
+    redis_client.set("youtube_gmail_last_checked_at", now)
     print(f"Timestamp updated in Redis: {now}")
 
 

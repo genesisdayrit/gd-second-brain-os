@@ -2,6 +2,15 @@ import os
 import json
 import requests
 import redis
+from dotenv import load_dotenv
+
+# Load environment variables from the .env file in the project root
+project_root_path = os.getenv("PROJECT_ROOT_PATH")
+if not project_root_path:
+    raise EnvironmentError("Environment variable PROJECT_ROOT_PATH is not set.")
+
+dotenv_path = os.path.join(project_root_path, ".env")
+load_dotenv(dotenv_path)
 
 # Redis connection
 redis_client = redis.StrictRedis(host="localhost", port=6379, db=0, decode_responses=True)
