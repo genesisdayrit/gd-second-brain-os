@@ -10,3 +10,4 @@
 /obsidian/personal/13_places
 /obsidian/personal/14_crm/_deals
 /obsidian/personal/14_crm/_people
+/obsidian/personal
