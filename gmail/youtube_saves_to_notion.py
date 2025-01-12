@@ -8,15 +8,9 @@ from dotenv import load_dotenv
 from notion_client import Client
 from datetime import datetime, timezone
 from google.oauth2.credentials import Credentials
-from google.auth.transport.requests import Request
 
-# Load environment variables from the .env file in the project root
-project_root_path = os.getenv("PROJECT_ROOT_PATH")
-if not project_root_path:
-    raise EnvironmentError("Environment variable PROJECT_ROOT_PATH is not set.")
-
-dotenv_path = os.path.join(project_root_path, ".env")
-load_dotenv(dotenv_path)
+# Load environment variables from the .env file
+load_dotenv()
 
 # Redis connection
 redis_client = redis.StrictRedis(host='localhost', port=6379, db=0, decode_responses=True)
@@ -36,6 +30,7 @@ if not all([
 
 SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
 
+# Initialize the Notion client
 notion = Client(auth=notion_api_key)
 
 
@@ -47,10 +42,10 @@ def get_gmail_service():
         raise ValueError("No access token found in Redis. Ensure tokens are set up and refreshed properly.")
 
     creds = Credentials(
-        access_token,
+        token=access_token,
         refresh_token=None,  # Redis handles refresh tokens, so this isn't needed here.
         token_uri="https://oauth2.googleapis.com/token",
-        client_id=None,  # No need for client_id or client_secret in this flow
+        client_id=None,
         client_secret=None,
     )
 
@@ -123,7 +118,7 @@ def search_messages(service, user_id='me', last_checked_at=None):
 
         youtube_shares = []
         results = service.users().messages().list(
-            userId=user_id, 
+            userId=user_id,
             q=query
         ).execute()
 
