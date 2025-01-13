@@ -43,7 +43,7 @@ def get_gmail_service():
 
     creds = Credentials(
         token=access_token,
-        refresh_token=None,  # Redis handles refresh tokens, so this isn't needed here.
+        refresh_token=None,
         token_uri="https://oauth2.googleapis.com/token",
         client_id=None,
         client_secret=None,
@@ -133,31 +133,30 @@ def search_messages(service, user_id='me', last_checked_at=None):
             msg = service.users().messages().get(userId=user_id, id=message['id']).execute()
 
             msg_date = datetime.fromtimestamp(int(msg['internalDate']) / 1000, tz=timezone.utc)
-
-            print(f"Processing message from {msg_date}")
-
-            if last_checked_at and msg_date <= last_checked_at:
-                print(f"Skipping message: not newer than last checked timestamp ({last_checked_at})")
-                continue
+            print(f"Processing message dated: {msg_date}")
 
             payload = msg['payload']
             headers = payload['headers']
 
+            # Extract and log the subject
             subject = next(header['value'] for header in headers if header['name'] == 'Subject')
+            print(f"Email subject: {subject}")
+
+            # Clean and log the cleaned title
             clean_title = clean_subject(subject)
+            print(f"Cleaned title: {clean_title}")
 
             url = extract_url(msg['snippet'])
-
             if not url:
-                print(f"Skipping message: no URL found in snippet")
+                print(f"Skipping email: No URL found in snippet. Subject: {subject}")
                 continue
 
             if check_existing_entry(url):
-                print(f"Skipping message: URL already exists in Notion")
+                print(f"Skipping email: URL already exists in Notion. Subject: {subject}, URL: {url}")
                 continue
 
             youtube_shares.append({'title': clean_title, 'url': url})
-            print(f"Added to processing list: {clean_title}")
+            print(f"Prepared for addition: Title: {clean_title}, URL: {url}")
 
         print(f"Total emails processed: {len(messages)}")
         print(f"New YouTube shares found: {len(youtube_shares)}")
@@ -196,3 +195,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
