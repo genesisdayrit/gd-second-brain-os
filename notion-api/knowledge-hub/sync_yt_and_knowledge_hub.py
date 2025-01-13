@@ -11,6 +11,7 @@ from notion_client import Client
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from google.oauth2.credentials import Credentials
+import pytz
 
 # ENV LOADING
 env_path = Path(__file__).resolve().parent.parent.parent / '.env'
@@ -393,6 +394,9 @@ def notion_to_dropbox_main(last_checked_at):
         logger.error(f"Failed to query Notion DB: {e}")
         return
 
+    system_tz_str = os.getenv("SYSTEM_TIMEZONE", "America/New York")
+    system_tz = pytz.timezone(system_tz_str)
+
     for page in pages:
         try:
             title_array = page['properties']['Name']['title']
@@ -418,9 +422,11 @@ def notion_to_dropbox_main(last_checked_at):
                 if not (ex.error.is_path() and ex.error.get_path().is_not_found()):
                     raise ex
 
-            created_time = datetime.fromisoformat(page['created_time'].rstrip('Z'))
-            formatted_date = created_time.strftime("%b %-d, %Y")  # might need adjustment on Windows
-            now_str = datetime.now(timezone.utc).isoformat()
+            created_time_utc = datetime.fromisoformat(page['created_time'].rstrip('Z')).replace(tzinfo=timezone.utc)
+            local_created_time = created_time_utc.astimezone(system_tz)
+            
+            formatted_date = local_created_time.strftime("%b %-d, %Y")  
+            now_str = datetime.now(timezone.utc).astimezone(system_tz).isoformat()
 
             markdown_content = f"""---
 Journal: 
