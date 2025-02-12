@@ -1,7 +1,7 @@
 import os
 import redis
 import dropbox
-import yaml  # Install with: pip install pyyaml
+import yaml 
 import logging
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
@@ -41,16 +41,20 @@ DROPBOX_ACCESS_TOKEN = get_dropbox_access_token()
 dbx = dropbox.Dropbox(DROPBOX_ACCESS_TOKEN)
 logger.info("Dropbox client initialized.")
 
-# --- Date Functions ---
+# --- Date Functions Using Tomorrow's Date ---
+def get_tomorrow():
+    """Return tomorrow's datetime object in the configured timezone."""
+    return datetime.now(pytz.timezone(timezone_str)) + timedelta(days=1)
+
 def get_day_of_week():
-    today = datetime.now(pytz.timezone(timezone_str))
-    return today.strftime('%A')
+    tomorrow = get_tomorrow()
+    return tomorrow.strftime('%A')
 
 def get_week_ending_sunday():
-    today = datetime.now(pytz.timezone(timezone_str))
+    tomorrow = get_tomorrow()
     # Sunday is 6 (Monday = 0)
-    days_until_sunday = (6 - today.weekday()) % 7
-    week_ending = today + timedelta(days=days_until_sunday)
+    days_until_sunday = (6 - tomorrow.weekday()) % 7
+    week_ending = tomorrow + timedelta(days=days_until_sunday)
     return week_ending.strftime('%Y-%m-%d')
 
 def get_week_ending_filenames():
@@ -61,10 +65,10 @@ def get_week_ending_filenames():
     }
 
 def get_cycle_date_range():
-    today = datetime.now(pytz.timezone(timezone_str))
-    # Wednesday = 2; compute days since last Wednesday
-    days_since_wednesday = (today.weekday() - 2) % 7
-    cycle_start = today - timedelta(days=days_since_wednesday)
+    tomorrow = get_tomorrow()
+    # Wednesday = 2; compute days since last Wednesday based on tomorrow
+    days_since_wednesday = (tomorrow.weekday() - 2) % 7
+    cycle_start = tomorrow - timedelta(days=days_since_wednesday)
     cycle_end = cycle_start + timedelta(days=6)
     return f"{cycle_start.strftime('%b. %d')} - {cycle_end.strftime('%b. %d, %Y')}"
 
@@ -73,12 +77,22 @@ def get_weekly_newsletter_filename():
     week_end_date = datetime.strptime(week_end_date_str, '%Y-%m-%d')
     return week_end_date.strftime("Weekly Newsletter %b. %d, %Y")
 
-def get_today_date():
-    today = datetime.now(pytz.timezone(timezone_str))
-    return today.strftime('%Y-%m-%d')
+def get_tomorrow_date():
+    return get_tomorrow().strftime('%Y-%m-%d')
 
-def get_today_iso_date():
-    return get_today_date()
+def get_tomorrow_iso_date():
+    return get_tomorrow_date()
+
+def get_tomorrow_filename():
+    """
+    Format tomorrow's date to match the journal filename format.
+    Note: For Linux/macOS use '%-d', for Windows '%#d'
+    """
+    tomorrow = get_tomorrow()
+    try:
+        return tomorrow.strftime('%b %-d, %Y.md')
+    except Exception:
+        return tomorrow.strftime('%b %#d, %Y.md')
 
 # --- Dropbox File/Folder Helper Functions ---
 def list_all_entries(base_path):
@@ -232,24 +246,21 @@ def get_journal_folder_path(vault_path):
     return journal_folder
 
 # --- Journal YAML Update Functions ---
-def get_today_filename():
+def get_tomorrow_filename_for_journal():
     """
-    Format today's date to match the journal filename format.
-    Note: For Linux/macOS use '%-d', for Windows '%#d'
+    Returns the filename for tomorrow's journal entry.
     """
-    today = datetime.now(pytz.timezone(timezone_str))
-    try:
-        return today.strftime('%b %-d, %Y.md')
-    except Exception:
-        return today.strftime('%b %#d, %Y.md')
+    tomorrow_filename = get_tomorrow_filename()
+    logger.info(f"Looking for tomorrow's journal file: {tomorrow_filename}")
+    return tomorrow_filename
 
-def find_today_journal_entry(journal_folder):
+def find_tomorrow_journal_entry(journal_folder):
     """
-    Locates today's journal entry inside the given journal_folder.
+    Locates tomorrow's journal entry inside the given journal_folder.
     Returns a tuple of (file_path, original_file_name).
     """
-    today_filename = get_today_filename()
-    logger.info(f"Looking for today's journal file: {today_filename}")
+    tomorrow_filename = get_tomorrow_filename_for_journal()
+    logger.info(f"Looking for tomorrow's journal file: {tomorrow_filename}")
     all_files = []
     try:
         response = dbx.files_list_folder(journal_folder)
@@ -262,10 +273,10 @@ def find_today_journal_entry(journal_folder):
         raise
 
     for entry in all_files:
-        if isinstance(entry, dropbox.files.FileMetadata) and entry.name.lower() == today_filename.lower():
-            logger.info(f"Found today's journal file: {entry.name}")
+        if isinstance(entry, dropbox.files.FileMetadata) and entry.name.lower() == tomorrow_filename.lower():
+            logger.info(f"Found tomorrow's journal file: {entry.name}")
             return entry.path_lower, entry.name  # Preserve original filename casing.
-    raise FileNotFoundError(f"No journal file found for today's date ({today_filename}) in '{journal_folder}'")
+    raise FileNotFoundError(f"No journal file found for tomorrow's date ({tomorrow_filename}) in '{journal_folder}'")
 
 def retrieve_file_content(file_path):
     """Retrieve the content of a file from Dropbox."""
@@ -302,14 +313,14 @@ def extract_yaml_metadata(file_content):
 
 def update_yaml_metadata(metadata, dynamic_mappings):
     """
-    Update YAML metadata with the current day of week, date, dynamic relationship mappings,
+    Update YAML metadata with tomorrow's day of week, date, dynamic relationship mappings,
     and add the Daily Action property as a list relationship.
     For keys that should be lists (e.g., 'Weeks', '_Weekly Health Reviews', '_Cycles', 'Daily Action'),
     the value is assigned as a list.
     """
-    # Update simple fields
+    # Update simple fields using tomorrow's date
     metadata["Day of Week"] = get_day_of_week()
-    metadata["Date"] = get_today_iso_date()
+    metadata["Date"] = get_tomorrow_iso_date()
 
     # Define which keys should be list properties
     list_keys = {"Weeks", "_Weekly Health Reviews", "_Cycles", "Daily Action"}
@@ -321,7 +332,7 @@ def update_yaml_metadata(metadata, dynamic_mappings):
             metadata[key] = relationship
 
     # Add the Daily Action property as a list relationship formatted as '[[DA YYYY-MM-DD]]'
-    daily_action = f"[[DA {get_today_date()}]]"
+    daily_action = f"[[DA {get_tomorrow_date()}]]"
     metadata["Daily Action"] = [daily_action]
 
     return metadata
@@ -347,18 +358,18 @@ def save_updated_file(file_path, file_name, updated_metadata, content):
 # --- Main Workflow ---
 def main():
     try:
-        # Step 1: Generate dynamic mappings based on date and file lookups.
+        # Step 1: Generate dynamic mappings based on tomorrow's date and file lookups.
         dynamic_mappings = get_dynamic_mappings()
         logger.info(f"Dynamic mappings: {dynamic_mappings}")
 
-        # Step 2: Locate today's journal note using a dynamic lookup of _Daily then _Journal.
+        # Step 2: Locate tomorrow's journal note using a dynamic lookup of _Daily then _Journal.
         vault_path = os.getenv("DROPBOX_OBSIDIAN_VAULT_PATH")
         if not vault_path:
             logger.error("DROPBOX_OBSIDIAN_VAULT_PATH environment variable is not set.")
             return
         journal_folder_path = get_journal_folder_path(vault_path)
-        journal_file_path, journal_file_name = find_today_journal_entry(journal_folder_path)
-        logger.info(f"Today's journal entry located at: {journal_file_path}")
+        journal_file_path, journal_file_name = find_tomorrow_journal_entry(journal_folder_path)
+        logger.info(f"Tomorrow's journal entry located at: {journal_file_path}")
 
         # Step 3: Retrieve file content and extract YAML front matter.
         file_content = retrieve_file_content(journal_file_path)
@@ -370,7 +381,7 @@ def main():
             logger.error("No valid YAML metadata found in journal file.")
             return
 
-        # Step 4: Update YAML metadata with current date info, dynamic mappings, and Daily Action.
+        # Step 4: Update YAML metadata with tomorrow's date info, dynamic mappings, and Daily Action.
         updated_metadata = update_yaml_metadata(metadata, dynamic_mappings)
 
         # Step 5: Save the updated journal file back to Dropbox.
