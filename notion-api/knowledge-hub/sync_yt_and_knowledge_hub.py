@@ -394,7 +394,7 @@ def notion_to_dropbox_main(last_checked_at):
         logger.error(f"Failed to query Notion DB: {e}")
         return
 
-    system_tz_str = os.getenv("SYSTEM_TIMEZONE", "America/New York")
+    system_tz_str = os.getenv("SYSTEM_TIMEZONE", "America/New_York")
     system_tz = pytz.timezone(system_tz_str)
 
     for page in pages:
