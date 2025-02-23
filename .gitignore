@@ -12,3 +12,5 @@ token.pickle
 prompts/
 
 ai-helpers/
+
+config/crontab/snapshots/*
