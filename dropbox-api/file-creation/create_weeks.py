@@ -68,17 +68,176 @@ def create_weekly_file(weekly_notes_folder_path):
     dropbox_file_path = f"{weekly_notes_folder_path}/{file_name}"
     
     # Create file content with date range and dataview queries
-    file_content = f"""### Journal entries from {formatted_monday} to {formatted_sunday}
+    file_content = f"""# Weekly Artifacts: {formatted_monday} to {formatted_sunday}
+
+### Journal Entries
 ```dataview
 LIST
 FROM "01_Daily/_Journal"
 WHERE 
 date >= date("{formatted_monday}")
 and date <= date("{formatted_sunday}")
-SORT file.ctime ASC
+SORT file.mtime DESC
 ```
 
-### Incoming Links
+### All Outgoing Links for the Week
+```dataview
+LIST 
+FROM outgoing([[{preceding_monday.strftime("%b %d, %Y")}]])
+OR outgoing([[{(preceding_monday + timedelta(days=1)).strftime("%b %d, %Y")}]])
+OR outgoing([[{(preceding_monday + timedelta(days=2)).strftime("%b %d, %Y")}]])
+OR outgoing([[{(preceding_monday + timedelta(days=3)).strftime("%b %d, %Y")}]])
+OR outgoing([[{(preceding_monday + timedelta(days=4)).strftime("%b %d, %Y")}]])
+OR outgoing([[{(preceding_monday + timedelta(days=5)).strftime("%b %d, %Y")}]])
+OR outgoing([[{upcoming_sunday.strftime("%b %d, %Y")}]])
+SORT file.mtime DESC
+```
+
+### All Incoming Links for the Week
+```dataview
+LIST 
+FROM [[{preceding_monday.strftime("%b %d, %Y")}]]
+OR [[{(preceding_monday + timedelta(days=1)).strftime("%b %d, %Y")}]]
+OR [[{(preceding_monday + timedelta(days=2)).strftime("%b %d, %Y")}]]
+OR [[{(preceding_monday + timedelta(days=3)).strftime("%b %d, %Y")}]]
+OR [[{(preceding_monday + timedelta(days=4)).strftime("%b %d, %Y")}]]
+OR [[{(preceding_monday + timedelta(days=5)).strftime("%b %d, %Y")}]]
+OR [[{upcoming_sunday.strftime("%b %d, %Y")}]]
+SORT file.mtime DESC
+```
+
+### Experiences / Events / Meetings / Sessions
+**Outgoing Links:**
+```dataview
+LIST 
+FROM outgoing([[{preceding_monday.strftime("%b %d, %Y")}]])
+OR outgoing([[{(preceding_monday + timedelta(days=1)).strftime("%b %d, %Y")}]])
+OR outgoing([[{(preceding_monday + timedelta(days=2)).strftime("%b %d, %Y")}]])
+OR outgoing([[{(preceding_monday + timedelta(days=3)).strftime("%b %d, %Y")}]])
+OR outgoing([[{(preceding_monday + timedelta(days=4)).strftime("%b %d, %Y")}]])
+OR outgoing([[{(preceding_monday + timedelta(days=5)).strftime("%b %d, %Y")}]])
+OR outgoing([[{upcoming_sunday.strftime("%b %d, %Y")}]])
+WHERE contains(file.folder, "07_Experiences+Events+Meetings+Sessions")
+SORT file.mtime DESC
+```
+
+**Incoming Links:**
+```dataview
+LIST 
+FROM [[{preceding_monday.strftime("%b %d, %Y")}]]
+OR [[{(preceding_monday + timedelta(days=1)).strftime("%b %d, %Y")}]]
+OR [[{(preceding_monday + timedelta(days=2)).strftime("%b %d, %Y")}]]
+OR [[{(preceding_monday + timedelta(days=3)).strftime("%b %d, %Y")}]]
+OR [[{(preceding_monday + timedelta(days=4)).strftime("%b %d, %Y")}]]
+OR [[{(preceding_monday + timedelta(days=5)).strftime("%b %d, %Y")}]]
+OR [[{upcoming_sunday.strftime("%b %d, %Y")}]]
+WHERE contains(file.folder, "07_Experiences+Events+Meetings+Sessions")
+SORT file.mtime DESC
+```
+
+### CRM
+**Outgoing Links:**
+```dataview
+LIST 
+FROM outgoing([[{preceding_monday.strftime("%b %d, %Y")}]])
+OR outgoing([[{(preceding_monday + timedelta(days=1)).strftime("%b %d, %Y")}]])
+OR outgoing([[{(preceding_monday + timedelta(days=2)).strftime("%b %d, %Y")}]])
+OR outgoing([[{(preceding_monday + timedelta(days=3)).strftime("%b %d, %Y")}]])
+OR outgoing([[{(preceding_monday + timedelta(days=4)).strftime("%b %d, %Y")}]])
+OR outgoing([[{(preceding_monday + timedelta(days=5)).strftime("%b %d, %Y")}]])
+OR outgoing([[{upcoming_sunday.strftime("%b %d, %Y")}]])
+WHERE contains(file.folder, "14_CRM")
+SORT file.mtime DESC
+```
+
+**Incoming Links:**
+```dataview
+LIST 
+FROM [[{preceding_monday.strftime("%b %d, %Y")}]]
+OR [[{(preceding_monday + timedelta(days=1)).strftime("%b %d, %Y")}]]
+OR [[{(preceding_monday + timedelta(days=2)).strftime("%b %d, %Y")}]]
+OR [[{(preceding_monday + timedelta(days=3)).strftime("%b %d, %Y")}]]
+OR [[{(preceding_monday + timedelta(days=4)).strftime("%b %d, %Y")}]]
+OR [[{(preceding_monday + timedelta(days=5)).strftime("%b %d, %Y")}]]
+OR [[{upcoming_sunday.strftime("%b %d, %Y")}]]
+WHERE contains(file.folder, "14_CRM")
+SORT file.mtime DESC
+```
+
+### Knowledge Hub
+**Outgoing Links:**
+```dataview
+LIST 
+FROM outgoing([[{preceding_monday.strftime("%b %d, %Y")}]])
+OR outgoing([[{(preceding_monday + timedelta(days=1)).strftime("%b %d, %Y")}]])
+OR outgoing([[{(preceding_monday + timedelta(days=2)).strftime("%b %d, %Y")}]])
+OR outgoing([[{(preceding_monday + timedelta(days=3)).strftime("%b %d, %Y")}]])
+OR outgoing([[{(preceding_monday + timedelta(days=4)).strftime("%b %d, %Y")}]])
+OR outgoing([[{(preceding_monday + timedelta(days=5)).strftime("%b %d, %Y")}]])
+OR outgoing([[{upcoming_sunday.strftime("%b %d, %Y")}]])
+WHERE contains(file.folder, "05_Knowledge-Hub")
+SORT file.mtime DESC
+```
+
+**Incoming Links:**
+```dataview
+LIST 
+FROM [[{preceding_monday.strftime("%b %d, %Y")}]]
+OR [[{(preceding_monday + timedelta(days=1)).strftime("%b %d, %Y")}]]
+OR [[{(preceding_monday + timedelta(days=2)).strftime("%b %d, %Y")}]]
+OR [[{(preceding_monday + timedelta(days=3)).strftime("%b %d, %Y")}]]
+OR [[{(preceding_monday + timedelta(days=4)).strftime("%b %d, %Y")}]]
+OR [[{(preceding_monday + timedelta(days=5)).strftime("%b %d, %Y")}]]
+OR [[{upcoming_sunday.strftime("%b %d, %Y")}]]
+WHERE contains(file.folder, "05_Knowledge-Hub")
+SORT file.mtime DESC
+```
+
+### Writing
+**Outgoing Links:**
+```dataview
+LIST 
+FROM outgoing([[{preceding_monday.strftime("%b %d, %Y")}]])
+OR outgoing([[{(preceding_monday + timedelta(days=1)).strftime("%b %d, %Y")}]])
+OR outgoing([[{(preceding_monday + timedelta(days=2)).strftime("%b %d, %Y")}]])
+OR outgoing([[{(preceding_monday + timedelta(days=3)).strftime("%b %d, %Y")}]])
+OR outgoing([[{(preceding_monday + timedelta(days=4)).strftime("%b %d, %Y")}]])
+OR outgoing([[{(preceding_monday + timedelta(days=5)).strftime("%b %d, %Y")}]])
+OR outgoing([[{upcoming_sunday.strftime("%b %d, %Y")}]])
+WHERE contains(file.folder, "03_Writing")
+SORT file.mtime DESC
+```
+
+**Incoming Links:**
+```dataview
+LIST 
+FROM [[{preceding_monday.strftime("%b %d, %Y")}]]
+OR [[{(preceding_monday + timedelta(days=1)).strftime("%b %d, %Y")}]]
+OR [[{(preceding_monday + timedelta(days=2)).strftime("%b %d, %Y")}]]
+OR [[{(preceding_monday + timedelta(days=3)).strftime("%b %d, %Y")}]]
+OR [[{(preceding_monday + timedelta(days=4)).strftime("%b %d, %Y")}]]
+OR [[{(preceding_monday + timedelta(days=5)).strftime("%b %d, %Y")}]]
+OR [[{upcoming_sunday.strftime("%b %d, %Y")}]]
+WHERE contains(file.folder, "03_Writing")
+SORT file.mtime DESC
+```
+
+### Notes & Ideas
+**Outgoing Links:**
+```dataview
+LIST 
+FROM outgoing([[{preceding_monday.strftime("%b %d, %Y")}]])
+OR outgoing([[{(preceding_monday + timedelta(days=1)).strftime("%b %d, %Y")}]])
+OR outgoing([[{(preceding_monday + timedelta(days=2)).strftime("%b %d, %Y")}]])
+OR outgoing([[{(preceding_monday + timedelta(days=3)).strftime("%b %d, %Y")}]])
+OR outgoing([[{(preceding_monday + timedelta(days=4)).strftime("%b %d, %Y")}]])
+OR outgoing([[{(preceding_monday + timedelta(days=5)).strftime("%b %d, %Y")}]])
+OR outgoing([[{upcoming_sunday.strftime("%b %d, %Y")}]])
+WHERE contains(file.folder, "06_Notes+Ideas")
+SORT file.mtime DESC
+```
+
+**Incoming Links:**
 ```dataview
 LIST
 FROM [[{preceding_monday.strftime("%b %d, %Y")}]]
@@ -88,20 +247,21 @@ OR [[{(preceding_monday + timedelta(days=3)).strftime("%b %d, %Y")}]]
 OR [[{(preceding_monday + timedelta(days=4)).strftime("%b %d, %Y")}]]
 OR [[{(preceding_monday + timedelta(days=5)).strftime("%b %d, %Y")}]]
 OR [[{upcoming_sunday.strftime("%b %d, %Y")}]]
-SORT file.name ASC
+WHERE contains(file.folder, "06_Notes+Ideas")
+SORT file.mtime DESC
 ```
 
-### Outgoing Links
+### All Incoming Links for the Week
 ```dataview
 LIST
-FROM outgoing([[{preceding_monday.strftime("%b %d, %Y")}]])
-OR outgoing([[{(preceding_monday + timedelta(days=1)).strftime("%b %d, %Y")}]])
-OR outgoing([[{(preceding_monday + timedelta(days=2)).strftime("%b %d, %Y")}]])
-OR outgoing([[{(preceding_monday + timedelta(days=3)).strftime("%b %d, %Y")}]])
-OR outgoing([[{(preceding_monday + timedelta(days=4)).strftime("%b %d, %Y")}]])
-OR outgoing([[{(preceding_monday + timedelta(days=5)).strftime("%b %d, %Y")}]])
-OR outgoing([[{upcoming_sunday.strftime("%b %d, %Y")}]])
-SORT file.name ASC
+FROM [[{preceding_monday.strftime("%b %d, %Y")}]]
+OR [[{(preceding_monday + timedelta(days=1)).strftime("%b %d, %Y")}]]
+OR [[{(preceding_monday + timedelta(days=2)).strftime("%b %d, %Y")}]]
+OR [[{(preceding_monday + timedelta(days=3)).strftime("%b %d, %Y")}]]
+OR [[{(preceding_monday + timedelta(days=4)).strftime("%b %d, %Y")}]]
+OR [[{(preceding_monday + timedelta(days=5)).strftime("%b %d, %Y")}]]
+OR [[{upcoming_sunday.strftime("%b %d, %Y")}]]
+SORT file.mtime DESC
 ```
 """
     
