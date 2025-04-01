@@ -2,7 +2,7 @@ import os
 import pyperclip
 
 # Define the environment variables
-PROJECT_REPO_PATH = os.getenv("PROJECT_REPO_PATH", "/home/ubuntu/repos/gd-second-brain-os")
+PROJECT_REPO_PATH = os.getenv("PROJECT_ROOT_PATH", "/home/ubuntu/repos/gd-second-brain-os")
 VENV_PATH = f"{PROJECT_REPO_PATH}/venv/bin/python"
 CONFIG_PATH = f"{PROJECT_REPO_PATH}/config"
 DROPBOX_API_PATH = f"{PROJECT_REPO_PATH}/dropbox-api"
