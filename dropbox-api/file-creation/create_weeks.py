@@ -55,12 +55,56 @@ def create_weekly_file(weekly_notes_folder_path):
     if days_until_sunday == 0:  # If today is Sunday, set days_until_sunday to 7 to get the next Sunday
         days_until_sunday = 7
     upcoming_sunday = today + timedelta(days=days_until_sunday)
-    formatted_date = upcoming_sunday.strftime("%Y-%m-%d")
-
+    
+    # Calculate the preceding Monday (6 days before Sunday)
+    preceding_monday = upcoming_sunday - timedelta(days=6)
+    
+    # Format dates
+    formatted_sunday = upcoming_sunday.strftime("%Y-%m-%d")
+    formatted_monday = preceding_monday.strftime("%Y-%m-%d")
+    
     # Create the file name
-    file_name = f"Week-Ending-{formatted_date}.md"
+    file_name = f"Week-Ending-{formatted_sunday}.md"
     dropbox_file_path = f"{weekly_notes_folder_path}/{file_name}"
+    
+    # Create file content with date range and dataview queries
+    file_content = f"""### Journal entries from {formatted_monday} to {formatted_sunday}
+```dataview
+LIST
+FROM "01_Daily/_Journal"
+WHERE 
+date >= date("{formatted_monday}")
+and date <= date("{formatted_sunday}")
+SORT file.ctime ASC
+```
 
+### Incoming Links
+```dataview
+LIST
+FROM [[{preceding_monday.strftime("%b %d, %Y")}]]
+OR [[{(preceding_monday + timedelta(days=1)).strftime("%b %d, %Y")}]]
+OR [[{(preceding_monday + timedelta(days=2)).strftime("%b %d, %Y")}]]
+OR [[{(preceding_monday + timedelta(days=3)).strftime("%b %d, %Y")}]]
+OR [[{(preceding_monday + timedelta(days=4)).strftime("%b %d, %Y")}]]
+OR [[{(preceding_monday + timedelta(days=5)).strftime("%b %d, %Y")}]]
+OR [[{upcoming_sunday.strftime("%b %d, %Y")}]]
+SORT file.name ASC
+```
+
+### Outgoing Links
+```dataview
+LIST
+FROM outgoing([[{preceding_monday.strftime("%b %d, %Y")}]])
+OR outgoing([[{(preceding_monday + timedelta(days=1)).strftime("%b %d, %Y")}]])
+OR outgoing([[{(preceding_monday + timedelta(days=2)).strftime("%b %d, %Y")}]])
+OR outgoing([[{(preceding_monday + timedelta(days=3)).strftime("%b %d, %Y")}]])
+OR outgoing([[{(preceding_monday + timedelta(days=4)).strftime("%b %d, %Y")}]])
+OR outgoing([[{(preceding_monday + timedelta(days=5)).strftime("%b %d, %Y")}]])
+OR outgoing([[{upcoming_sunday.strftime("%b %d, %Y")}]])
+SORT file.name ASC
+```
+"""
+    
     # Check if the file already exists
     try:
         dbx.files_get_metadata(dropbox_file_path)
@@ -68,8 +112,9 @@ def create_weekly_file(weekly_notes_folder_path):
     except dropbox.exceptions.ApiError as e:
         if isinstance(e.error, dropbox.files.GetMetadataError):
             print(f"File '{file_name}' does not exist in Dropbox. Creating it now.")
-            dbx.files_upload(b"", dropbox_file_path)  # Upload an empty bytes object
-            print(f"Successfully created empty file '{file_name}' in Dropbox.")
+            # Upload the file with content instead of empty file
+            dbx.files_upload(file_content.encode('utf-8'), dropbox_file_path)
+            print(f"Successfully created file '{file_name}' with content in Dropbox.")
         else:
             raise
 
@@ -78,7 +123,7 @@ def main():
     if not dropbox_vault_path:
         print("Error: DROPBOX_OBSIDIAN_VAULT_PATH environment variable not set")
         sys.exit(1)
-
+    
     try:
         weekly_folder_path = find_weekly_folder(dropbox_vault_path)
         weekly_notes_folder_path = f"{weekly_folder_path}/_Weeks"
@@ -92,9 +137,8 @@ def main():
     except FileNotFoundError as e:
         print(f"Error: {e}")
         sys.exit(1)
-
+    
     create_weekly_file(weekly_notes_folder_path)
 
 if __name__ == "__main__":
     main()
-
