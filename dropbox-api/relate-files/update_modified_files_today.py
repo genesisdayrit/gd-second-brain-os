@@ -225,12 +225,15 @@ def update_journal_property(file_path):
 def main():
     logger.info("Starting script to check modified files and update Journal property.")
 
-    # 1. Load folder paths from text file
-    paths_file = "paths_to_check.txt"  # File containing the list of folder paths
+    # 1. Load folder paths from text file using PROJECT_ROOT_PATH environment variable
+    project_root = os.getenv('PROJECT_ROOT_PATH', os.getcwd())  # Fallback to current dir if not set
+    paths_file = os.path.join(project_root, "dropbox-api", "relate-files", "paths_to_check.txt")
+    
+    logger.info(f"Using paths file: {paths_file}")
     paths_to_check = load_paths(paths_file)
 
     if not paths_to_check:
-        logger.error("No paths to check. Please ensure 'paths_to_check.txt' is populated.")
+        logger.error(f"No paths to check. Please ensure '{paths_file}' is populated.")
         return
 
     # 2. Determine cutoff for picking files
@@ -271,4 +274,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
