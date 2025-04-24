@@ -5,9 +5,21 @@ import pytz
 import redis
 from dotenv import load_dotenv
 from pathlib import Path
+import logging
+
+# --- Logging Configuration ---
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # Load environment variables from .env file
 load_dotenv()
+
+# --- Timezone Configuration ---
+timezone_str = os.getenv("SYSTEM_TIMEZONE", "US/Eastern")
+logger.info(f"Using timezone: {timezone_str}")
 
 # Get Redis configuration from environment variables
 redis_host = os.getenv('REDIS_HOST', 'localhost')  # Default to 'localhost' if not set
@@ -59,10 +71,10 @@ def find_daily_action_folder(vault_path):
 
 def create_daily_action_file(daily_action_folder_path):
     """Create a new daily action file with structured prompts and two reflection questions."""
-    # Define timezone for Central Time
-    central_tz = pytz.timezone('US/Central')
-    now_central = datetime.now(central_tz)
-    next_day = now_central + timedelta(days=1)
+    # Define timezone using environment variable
+    system_tz = pytz.timezone(timezone_str)
+    now_system = datetime.now(system_tz)
+    next_day = now_system + timedelta(days=1)
     
     # Format the file name as "DA YYYY-MM-DD"
     file_name = f"DA {next_day.strftime('%Y-%m-%d')}.md"

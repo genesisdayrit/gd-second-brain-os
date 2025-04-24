@@ -8,12 +8,18 @@ from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
 from pathlib import Path
 import logging
+import pytz
 
 # Define the path to the .env file relative to the script's location
 env_path = Path(__file__).resolve().parent.parent.parent / '.env'
 
 # Load environment variables
 load_dotenv(dotenv_path=env_path)
+
+# --- Timezone Configuration ---
+# Note: We'll still use UTC for timestamp storage for consistency with APIs and databases
+timezone_str = os.getenv("SYSTEM_TIMEZONE", "US/Eastern")
+system_tz = pytz.timezone(timezone_str)
 
 # Redis configuration
 redis_host = os.getenv('REDIS_HOST', 'localhost')
@@ -46,6 +52,8 @@ DROPBOX_OBSIDIAN_VAULT_PATH = os.getenv('DROPBOX_OBSIDIAN_VAULT_PATH')
 # Logging configuration
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger()
+logger.info(f"Using system timezone: {timezone_str}")
+logger.info(f"Using UTC for timestamp storage for API and database consistency")
 
 # Initialize Notion client
 notion = Client(auth=NOTION_API_KEY)
@@ -80,6 +88,7 @@ def get_last_run_timestamp():
 
 # Update the last run timestamp in Redis
 def update_run_timestamp():
+    """Update the last run timestamp in Redis using UTC for consistency with APIs."""
     try:
         now = datetime.now(timezone.utc).isoformat()
         r.set(REDIS_LAST_RUN_KEY, now)
@@ -249,12 +258,19 @@ def process_notion_pages(knowledge_hub_path):
                 else:
                     raise e
 
+            # Get the current date in user's local timezone for the journal link
+            now_local = datetime.now(timezone.utc).astimezone(system_tz)
+            formatted_local_date = now_local.strftime('%b %-d, %Y')
+
+            # Continue using UTC for timestamps in metadata for consistency
+            now_utc = datetime.now(timezone.utc)
+
             # Construct Markdown content
             markdown_content = f"""---
 Journal: 
-  - "[[{datetime.now(timezone.utc).strftime('%b %-d, %Y')}]]"
-created time: {datetime.now(timezone.utc).isoformat()}
-modified time: {datetime.now(timezone.utc).isoformat()}
+  - "[[{formatted_local_date}]]"
+created time: {now_utc.isoformat()}
+modified time: {now_utc.isoformat()}
 key words: 
 People: 
 URL: {url if url else ''}

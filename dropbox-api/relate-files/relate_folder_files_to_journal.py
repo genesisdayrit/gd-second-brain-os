@@ -4,9 +4,21 @@ import redis
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 import pytz
+import logging
+
+# --- Logging Configuration ---
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # Load environment variables from .env file
 load_dotenv()
+
+# --- Timezone Configuration ---
+timezone_str = os.getenv("SYSTEM_TIMEZONE", "US/Eastern")
+logger.info(f"Using timezone: {timezone_str}")
 
 # Redis configuration
 redis_host = os.getenv('REDIS_HOST', 'localhost')
@@ -101,14 +113,14 @@ def fetch_sorted_files_metadata(folder_path):
     return files_metadata
 
 def filter_recent_files(files_metadata, lookback_days):
-    """Filter files that were created or modified in the last 'lookback_days' days using Eastern Time."""
+    """Filter files that were created or modified in the last 'lookback_days' days using system timezone."""
     recent_files = []
-    lookback_date = datetime.now(pytz.timezone('US/Eastern')) - timedelta(days=lookback_days)
+    lookback_date = datetime.now(pytz.timezone(timezone_str)) - timedelta(days=lookback_days)
 
     for entry in files_metadata:
         if isinstance(entry, dropbox.files.FileMetadata):
             # Use client_modified for created date
-            created_time = entry.client_modified.astimezone(pytz.timezone('US/Eastern'))
+            created_time = entry.client_modified.astimezone(pytz.timezone(timezone_str))
 
             if created_time >= lookback_date:
                 recent_files.append({

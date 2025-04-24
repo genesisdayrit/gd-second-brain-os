@@ -3,6 +3,14 @@ import sys
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 import pytz
+import logging
+
+# --- Logging Configuration ---
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # Get the directory of the script
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -12,6 +20,10 @@ root_dir = os.path.dirname(script_dir)
 
 # Load environment variables from the .env file in the root directory
 load_dotenv(os.path.join(root_dir, '.env'))
+
+# --- Timezone Configuration ---
+timezone_str = os.getenv("SYSTEM_TIMEZONE", "US/Eastern")
+logger.info(f"Using timezone: {timezone_str}")
 
 def find_daily_folder(base_path):
     for item in os.listdir(base_path):
@@ -26,13 +38,13 @@ def fetch_last_journal_date(journal_path):
     return max(journal_files).split('.md')[0]
 
 def create_journal_file(file_path):
-    # Define timezone for Central Time
-    central_tz = pytz.timezone('US/Central')
+    # Define timezone using environment variable
+    system_tz = pytz.timezone(timezone_str)
 
-    # Get the current time in Central Time
-    now_central = datetime.now(central_tz)
+    # Get the current time in system timezone
+    now_system = datetime.now(system_tz)
     # Calculate the time for the next day
-    next_day = now_central + timedelta(days=1)
+    next_day = now_system + timedelta(days=1)
     
     # Format the date for the journal title
     formatted_date = f"{next_day.strftime('%b')} {next_day.day}, {next_day.strftime('%Y')}"  # e.g., Jun 1, 2024

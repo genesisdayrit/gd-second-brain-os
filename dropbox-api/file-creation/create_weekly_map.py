@@ -5,9 +5,21 @@ import pytz
 import redis
 from dotenv import load_dotenv
 from pathlib import Path
+import logging
+
+# --- Logging Configuration ---
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # Load environment variables from .env file
 load_dotenv()
+
+# --- Timezone Configuration ---
+timezone_str = os.getenv("SYSTEM_TIMEZONE", "US/Eastern")
+logger.info(f"Using timezone: {timezone_str}")
 
 # Get Redis configuration from environment variables
 redis_host = os.getenv('REDIS_HOST', 'localhost')  # Default to 'localhost' if not set
@@ -105,8 +117,8 @@ def main():
         template_content = get_template_content(templates_folder_path)
 
         # Calculate the title date for the file (Sunday after the upcoming Sunday)
-        central_tz = pytz.timezone('US/Central')
-        today = datetime.now(central_tz)
+        system_tz = pytz.timezone(timezone_str)
+        today = datetime.now(system_tz)
         days_until_sunday = (6 - today.weekday()) % 7
         next_sunday = today + timedelta(days=days_until_sunday)
         sunday_after_next = next_sunday + timedelta(days=7)

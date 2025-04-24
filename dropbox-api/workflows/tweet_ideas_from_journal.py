@@ -8,9 +8,21 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pytz import timezone
+import logging
+
+# --- Logging Configuration ---
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # Load environment variables from .env file
 load_dotenv()
+
+# --- Timezone Configuration ---
+timezone_str = os.getenv("SYSTEM_TIMEZONE", "US/Eastern")
+logger.info(f"Using timezone: {timezone_str}")
 
 # Redis configuration
 redis_host = os.getenv('REDIS_HOST', 'localhost')
@@ -71,11 +83,11 @@ def find_journal_folder(daily_folder_path):
 
 def fetch_yesterday_journal_entry(journal_folder_path):
     """Fetch yesterday's journal entry from the '_Journal' folder."""
-    eastern = timezone('US/Eastern')
-    now_eastern = datetime.now(eastern)
+    system_tz = timezone(timezone_str)
+    now_system = datetime.now(system_tz)
 
     # Calculate the previous day
-    yesterday = now_eastern - timedelta(days=1)
+    yesterday = now_system - timedelta(days=1)
     yesterday_date = yesterday.strftime("%b %-d, %Y").lower()  # e.g., "dec 9, 2024"
 
     # List all files in the folder

@@ -4,9 +4,21 @@ import redis
 from dotenv import load_dotenv
 from datetime import datetime
 import pytz
+import logging
+
+# --- Logging Configuration ---
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
+
+# --- Timezone Configuration ---
+timezone_str = os.getenv("SYSTEM_TIMEZONE", "US/Eastern")
+logger.info(f"Using timezone: {timezone_str}")
 
 # Redis configuration
 redis_host = os.getenv('REDIS_HOST', 'localhost')
@@ -40,7 +52,7 @@ def load_paths(file_path):
 # Function to check if files in a folder were client modified today
 def get_modified_files_today(paths):
     modified_files = []
-    today = datetime.now(pytz.timezone('US/Eastern')).date()
+    today = datetime.now(pytz.timezone(timezone_str)).date()
 
     for path in paths:
         try:

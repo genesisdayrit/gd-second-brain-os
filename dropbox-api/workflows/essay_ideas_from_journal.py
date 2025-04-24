@@ -10,9 +10,21 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pytz import timezone
 from datetime import timedelta
+import logging
+
+# --- Logging Configuration ---
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # Load environment variables from .env file
 load_dotenv()
+
+# --- Timezone Configuration ---
+timezone_str = os.getenv("SYSTEM_TIMEZONE", "US/Eastern")
+logger.info(f"Using timezone: {timezone_str}")
 
 # Get Redis configuration from environment variables
 redis_host = os.getenv('REDIS_HOST', 'localhost')  # Default to 'localhost' if not set
@@ -70,12 +82,12 @@ def fetch_today_journal_entry(journal_folder_path):
     Fetch today's journal entry from the '_Journal' folder, assuming lowercase file names.
     """
     # Set up timezones
-    eastern = timezone('US/Eastern')
+    system_tz = timezone(timezone_str)
     utc = timezone('UTC')
 
-    # Current time in Eastern Time and UTC
-    now_eastern = datetime.now(eastern)
-    today_date = now_eastern.strftime("%b %-d, %Y").lower()  # e.g., "nov 15, 2024"
+    # Current time in system timezone and UTC
+    now_system = datetime.now(system_tz)
+    today_date = now_system.strftime("%b %-d, %Y").lower()  # e.g., "nov 15, 2024"
 
     # List all files in the folder
     result = dbx.files_list_folder(journal_folder_path)

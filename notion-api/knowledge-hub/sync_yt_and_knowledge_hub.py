@@ -17,6 +17,15 @@ import pytz
 env_path = Path(__file__).resolve().parent.parent.parent / '.env'
 load_dotenv(dotenv_path=env_path)
 
+# --- Timezone Configuration ---
+# Note: We'll still use UTC for timestamp storage for consistency with APIs and databases
+timezone_str = os.getenv("SYSTEM_TIMEZONE", "US/Eastern")
+system_tz = pytz.timezone(timezone_str)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger()
+logger.info(f"Using system timezone: {timezone_str}")
+logger.info(f"Using UTC for timestamp storage for API and database consistency")
+
 # REDIS SETUP
 redis_host = os.getenv('REDIS_HOST', 'localhost')
 redis_port = int(os.getenv('REDIS_PORT', 6379))
@@ -65,15 +74,11 @@ def get_dropbox_access_token():
 DROPBOX_ACCESS_TOKEN = get_dropbox_access_token()
 dbx = dropbox.Dropbox(DROPBOX_ACCESS_TOKEN)
 
-# LOGGING
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger()
-
 # REDIS TIMESTAMP FUNCTIONS (Called only in main)
 def get_last_synced_knowledge_hub_at():
     """
     Retrieve the last synced timestamp from Redis for your Knowledge Hub.
-    If not set, we’ll default to something older in main().
+    If not set, we'll default to something older in main().
     """
     last_checked = redis_client.get(LAST_SYNCED_KEY)
     if last_checked:
@@ -84,6 +89,7 @@ def update_last_synced_knowledge_hub_at():
     """
     Update the last synced timestamp in Redis for your Knowledge Hub.
     We'll only call this once at the end of main().
+    Using UTC for consistency with APIs.
     """
     now = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S%z')
     redis_client.set(LAST_SYNCED_KEY, now)
@@ -394,9 +400,6 @@ def notion_to_dropbox_main(last_checked_at):
         logger.error(f"Failed to query Notion DB: {e}")
         return
 
-    system_tz_str = os.getenv("SYSTEM_TIMEZONE", "America/New_York")
-    system_tz = pytz.timezone(system_tz_str)
-
     for page in pages:
         try:
             title_array = page['properties']['Name']['title']
@@ -425,8 +428,11 @@ def notion_to_dropbox_main(last_checked_at):
             created_time_utc = datetime.fromisoformat(page['created_time'].rstrip('Z')).replace(tzinfo=timezone.utc)
             local_created_time = created_time_utc.astimezone(system_tz)
             
-            formatted_date = local_created_time.strftime("%b %-d, %Y")  
-            now_str = datetime.now(timezone.utc).astimezone(system_tz).isoformat()
+            formatted_date = local_created_time.strftime("%b %-d, %Y")
+            
+            # Use UTC for timestamp storage for API consistency
+            now_utc = datetime.now(timezone.utc)
+            now_str = now_utc.isoformat()
 
             markdown_content = f"""---
 Journal: 

@@ -5,9 +5,21 @@ import yaml  # Install with `pip install pyyaml`
 from datetime import datetime
 from dotenv import load_dotenv
 import pytz
+import logging
+
+# --- Logging Configuration ---
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
+
+# --- Timezone Configuration ---
+timezone_str = os.getenv("SYSTEM_TIMEZONE", "US/Eastern")
+logger.info(f"Using timezone: {timezone_str}")
 
 # Redis configuration
 redis_host = os.getenv('REDIS_HOST', 'localhost')
@@ -33,7 +45,7 @@ def get_today_filename():
     Format today's date to match the journal filename format.
     Example: 'Feb 9, 2025.md'
     """
-    today = datetime.now(pytz.timezone('US/Eastern'))
+    today = datetime.now(pytz.timezone(timezone_str))
     return today.strftime('%b %-d, %Y.md')  # Linux/macOS formatting
 
 def find_daily_folder(vault_path):

@@ -8,9 +8,25 @@ from dotenv import load_dotenv
 from notion_client import Client
 from datetime import datetime, timezone
 from google.oauth2.credentials import Credentials
+import logging
+import pytz
+
+# --- Logging Configuration ---
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # Load environment variables from the .env file
 load_dotenv()
+
+# --- Timezone Configuration ---
+# Note: We'll still use UTC for timestamp storage for consistency
+timezone_str = os.getenv("SYSTEM_TIMEZONE", "US/Eastern")
+logger.info(f"Using system timezone: {timezone_str}")
+system_tz = pytz.timezone(timezone_str)
+logger.info(f"Using UTC for timestamp storage for API consistency")
 
 # Redis connection
 redis_client = redis.StrictRedis(host='localhost', port=6379, db=0, decode_responses=True)
@@ -101,7 +117,8 @@ def get_last_checked_timestamp():
 
 
 def update_checked_timestamp():
-    """Update the last checked timestamp for YouTube Gmail in Redis."""
+    """Update the last checked timestamp for YouTube Gmail in Redis.
+    Using UTC for consistent timestamp storage."""
     now = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S%z')
     redis_client.set("youtube_gmail_last_checked_at", now)
     print(f"Timestamp updated in Redis: {now}")

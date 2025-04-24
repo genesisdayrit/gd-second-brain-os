@@ -8,12 +8,18 @@ from datetime import datetime, timezone, timedelta
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 import logging
+import pytz
 
 # Define the path to the .env file relative to the script's location
 env_path = Path(__file__).resolve().parent.parent.parent / '.env'
 
 # Load environment variables from the .env file
 load_dotenv(dotenv_path=env_path)
+
+# --- Timezone Configuration ---
+# Note: We'll still use UTC for timestamp storage for consistency with APIs and databases
+timezone_str = os.getenv("SYSTEM_TIMEZONE", "US/Eastern")
+system_tz = pytz.timezone(timezone_str)
 
 # Notion setup
 NOTION_API_KEY = os.getenv('NOTION_API_KEY')
@@ -31,6 +37,8 @@ OBSIDIAN_KNOWLEDGE_HUB_PATH = os.getenv('OBSIDIAN_KNOWLEDGE_HUB_PATH')
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger()
+logger.info(f"Using system timezone: {timezone_str}")
+logger.info(f"Using UTC for timestamp storage for API and database consistency")
 
 # Ensure all required environment variables are set
 required_env_vars = [
@@ -73,6 +81,7 @@ def get_last_run_timestamp():
     return datetime.strptime(last_timestamp, '%m/%d/%Y %H:%M:%S').replace(tzinfo=timezone.utc)
 
 def update_run_timestamp():
+    """Update run timestamp in Google Sheets using UTC for consistency."""
     logger.info("Updating run timestamp in Google Sheets.")
     service = get_sheets_service()
     now = datetime.now(timezone.utc).strftime('%m/%d/%Y %H:%M:%S')
@@ -261,6 +270,7 @@ def main():
                 skipped_files_due_to_existence.append(filename)
                 continue
 
+            # Using UTC for consistent timestamp storage in the database
             markdown_content = f"""---
 Journal: 
   - "[[{formatted_date}]]"

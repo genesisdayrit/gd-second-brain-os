@@ -5,12 +5,23 @@ from dotenv import load_dotenv
 from pathlib import Path
 from notion_client import Client
 from datetime import datetime, timezone, timedelta
+import logging
+import pytz
+
+# Set up logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 # Define the path to the .env file relative to the script's location
 env_path = Path(__file__).resolve().parent.parent / '.env'
 
 # Load environment variables from the .env file
 load_dotenv(dotenv_path=env_path)
+
+# --- Timezone Configuration ---
+timezone_str = os.getenv("SYSTEM_TIMEZONE", "US/Eastern")
+system_tz = pytz.timezone(timezone_str)
+logger.info(f"Using system timezone: {timezone_str}")
 
 # Retrieve environment variables
 notion_api_key = os.getenv('NOTION_API_KEY')
@@ -26,9 +37,11 @@ if not notion_knowledge_hub_db:
 notion = Client(auth=notion_api_key)
 
 # Convert the target date and time to UTC for comparison
-central_time = timezone(timedelta(hours=-5))  # Central Time is UTC-5
-target_datetime = datetime(2024, 8, 11, 15, 0, tzinfo=central_time)
+# Replace hardcoded Central Time with system timezone
+target_datetime = datetime(2024, 8, 11, 15, 0, tzinfo=system_tz)
 target_datetime_utc = target_datetime.astimezone(timezone.utc)
+logger.info(f"Target datetime in {timezone_str}: {target_datetime}")
+logger.info(f"Target datetime in UTC: {target_datetime_utc}")
 
 # Get the database name for creating a subfolder
 database_name = notion.databases.retrieve(notion_knowledge_hub_db)['title'][0]['plain_text']
@@ -176,9 +189,10 @@ for page in notion.databases.query(
     url = page['properties']['URL']['url'] if 'URL' in page['properties'] else None
     content = fetch_and_parse_blocks(page['id'], headers)
     
-    # Get the creation date from Notion
-    created_time = datetime.fromisoformat(page['created_time'].rstrip('Z'))
-    formatted_date = created_time.strftime("%b %-d, %Y")  # Format: Aug 24, 2024 or Aug 3, 2024
+    # Get the creation date from Notion and convert to local time
+    created_time_utc = datetime.fromisoformat(page['created_time'].rstrip('Z')).replace(tzinfo=timezone.utc)
+    created_time_local = created_time_utc.astimezone(system_tz)
+    formatted_date = created_time_local.strftime("%b %-d, %Y")  # Format: Aug 24, 2024 or Aug 3, 2024
     
     results.append({
         "title": title,
@@ -195,4 +209,4 @@ json_filepath = destination_path / json_filename
 with open(json_filepath, 'w') as json_file:
     json.dump(results, json_file, indent=4)
 
-print(f"JSON file created: {json_filepath}")
+logger.info(f"JSON file created: {json_filepath}")
