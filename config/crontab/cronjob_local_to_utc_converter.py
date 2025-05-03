@@ -5,8 +5,8 @@ from zoneinfo import ZoneInfo       # Python 3.9+
 from dotenv import load_dotenv      # pip install python-dotenv
 
 # ── CONFIG (update as needed) ─────────────────────────────────────────────
-TARGET_HOUR       = 6              # local hour (24-hr clock)
-TARGET_MINUTE     = 0              # local minute
+TARGET_HOUR       = 12              # local hour (24-hr clock)
+TARGET_MINUTE     = 30              # local minute
 TARGET_LOCAL_DOW  = 6              # 0–7 cron-style (0 or 7=Sun, 1=Mon … 6=Sat)
 # ──────────────────────────────────────────────────────────────────────────
 
