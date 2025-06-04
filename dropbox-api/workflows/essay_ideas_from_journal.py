@@ -133,40 +133,107 @@ def get_essay_ideas_from_openai(journal_text):
     )
     return completion.choices[0].message.content
 
-def get_book_recommendations(journal_text):
-    """Generate book recommendations based on journal content using OpenAI GPT-4."""
+def get_supporting_materials_with_web_search(journal_text, essay_ideas):
+    """Generate supporting materials (essays, articles, books) using OpenAI web search based on journal content and essay ideas."""
     client = OpenAI(api_key=openai_api_key)
-    system_prompt = (
-        "You are a knowledgeable bibliophile and literary curator with expertise across multiple "
-        "genres and fields. Your role is to recommend books that would enrich and expand upon "
-        "the themes, ideas, and questions present in the journal entry. Consider both classic "
-        "and contemporary works, and include fiction and non-fiction recommendations where appropriate. "
-        "For each book, explain specifically how it connects to the journal's content and what "
-        "unique perspective it might offer."
-    )
-    user_prompt = f"""Here is today's journal entry:
+    
+    # Create a comprehensive prompt that includes both journal content and essay ideas
+    search_prompt = f"""Based on the following journal entry and essay ideas, please search the web for relevant supporting materials including recent articles, essays, books, and other resources that would help develop these topics further.
 
+JOURNAL ENTRY:
 {journal_text}
 
-Please provide 4-6 book recommendations based on the themes, questions, and topics present in this journal entry. For each book, include:
-1. Title and author
-2. A brief description of the book
-3. Specific explanation of why this book would be valuable given the journal's content
-4. What new perspectives or insights this book might offer
+ESSAY IDEAS:
+{essay_ideas}
 
-Mix both classic and contemporary works, and consider both fiction and non-fiction where appropriate."""
+Please search for and provide:
+1. Recent articles or essays from reputable publications that relate to these themes
+2. Relevant books (both recent and classic) that would provide deeper insight
+3. Academic papers or research that supports these topics
+4. Any other valuable resources (documentaries, podcasts, etc.)
+
+For each resource, please include:
+- **Title and author/source**
+- Brief description of how it relates to the journal themes and essay ideas
+- Key insights or perspectives it offers
+- Publication date when available
+
+Important: Please provide proper citations and web sources for all recommendations. Use web search to find current, relevant materials rather than relying on training data. Format your response using markdown with **bold** for titles and proper [link text](url) formatting where applicable.
+
+Focus on finding high-quality, credible sources that would genuinely help develop the essay ideas further."""
 
     completion = client.chat.completions.create(
-        model="gpt-4o",
+        model="gpt-4o-search-preview",
+        web_search_options={
+            "search_context_size": "medium"
+        },
         messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
+            {
+                "role": "user",
+                "content": search_prompt
+            }
         ]
     )
-    return completion.choices[0].message.content
+    
+    content = completion.choices[0].message.content
+    citations = completion.choices[0].message.annotations if hasattr(completion.choices[0].message, 'annotations') and completion.choices[0].message.annotations else []
+    
+    logger.info(f"Web search completed successfully with {len(citations)} citations")
+    return content, citations
 
-def send_email(subject, essay_ideas, book_recommendations, to_email, from_email, password):
-    """Send an email with the generated content."""
+def markdown_to_html(text):
+    """Convert markdown formatting to HTML."""
+    import re
+    
+    # Convert **bold** to <strong>bold</strong>
+    text = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', text)
+    
+    # Convert [link text](url) to <a href="url">link text</a>
+    text = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'<a href="\2" target="_blank">\1</a>', text)
+    
+    # Convert ### Headers to <h3>
+    text = re.sub(r'^### (.*?)$', r'<h3 style="color: #2c5282; margin-top: 20px; margin-bottom: 10px;">\1</h3>', text, flags=re.MULTILINE)
+    
+    # Convert ## Headers to <h3> (treating as subheaders)
+    text = re.sub(r'^## (.*?)$', r'<h3 style="color: #2c5282; margin-top: 20px; margin-bottom: 10px;">\1</h3>', text, flags=re.MULTILINE)
+    
+    # Convert # Headers to <h2>
+    text = re.sub(r'^# (.*?)$', r'<h2 style="color: #2c5282; margin-top: 25px; margin-bottom: 15px;">\1</h2>', text, flags=re.MULTILINE)
+    
+    # Convert bullet points (- item) to proper list items
+    lines = text.split('\n')
+    in_list = False
+    result_lines = []
+    
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith('- ') or stripped.startswith('* '):
+            if not in_list:
+                result_lines.append('<ul style="margin: 10px 0; padding-left: 20px;">')
+                in_list = True
+            result_lines.append(f'<li style="margin: 5px 0;">{stripped[2:]}</li>')
+        else:
+            if in_list:
+                result_lines.append('</ul>')
+                in_list = False
+            result_lines.append(line)
+    
+    if in_list:
+        result_lines.append('</ul>')
+    
+    text = '\n'.join(result_lines)
+    
+    # Convert double line breaks to paragraph breaks
+    text = re.sub(r'\n\n+', '</p><p style="margin: 15px 0; line-height: 1.6;">', text)
+    
+    # Wrap in paragraph tags if not already wrapped
+    if not text.startswith('<'):
+        text = f'<p style="margin: 15px 0; line-height: 1.6;">{text}</p>'
+    
+    return text
+
+def send_email(subject, essay_ideas, supporting_materials, citations, to_email, from_email, password):
+    """Send an email with the generated content and citations."""
     try:
         # Set up the SMTP server
         s = smtplib.SMTP(host='smtp.gmail.com', port=587)
@@ -179,20 +246,60 @@ def send_email(subject, essay_ideas, book_recommendations, to_email, from_email,
         msg['To'] = to_email
         msg['Subject'] = subject
 
-        # Format content with HTML
+        # Format citations as HTML links
+        citations_html = ""
+        if citations:
+            citations_html = "<div style='margin-top: 30px; padding: 20px; background-color: #f8f9fa; border-left: 4px solid #2c5282; border-radius: 5px;'>"
+            citations_html += "<h3 style='color: #2c5282; margin-top: 0; margin-bottom: 15px;'>📚 Sources & Citations</h3>"
+            citations_html += "<ul style='margin: 0; padding-left: 20px; list-style-type: none;'>"
+            for i, citation in enumerate(citations, 1):
+                try:
+                    if hasattr(citation, 'type') and citation.type == 'url_citation':
+                        if hasattr(citation, 'url_citation'):
+                            url_info = citation.url_citation
+                            citations_html += f"<li style='margin: 8px 0; padding: 5px 0; border-bottom: 1px solid #e9ecef;'><strong>{i}.</strong> <a href='{url_info.url}' target='_blank' style='color: #2c5282; text-decoration: none;'>{url_info.title}</a></li>"
+                    elif hasattr(citation, 'url') and hasattr(citation, 'title'):
+                        citations_html += f"<li style='margin: 8px 0; padding: 5px 0; border-bottom: 1px solid #e9ecef;'><strong>{i}.</strong> <a href='{citation.url}' target='_blank' style='color: #2c5282; text-decoration: none;'>{citation.title}</a></li>"
+                except Exception as cite_error:
+                    logger.warning(f"Error processing citation: {cite_error}")
+                    citations_html += f"<li style='margin: 8px 0; padding: 5px 0;'><strong>{i}.</strong> Citation available (formatting error)</li>"
+            citations_html += "</ul></div>"
+
+        # Convert markdown to HTML for both sections
+        essay_ideas_html = markdown_to_html(essay_ideas)
+        supporting_materials_html = markdown_to_html(supporting_materials)
+
+        # Format content with improved HTML
         html_content = f"""
         <html>
-            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-                <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-                    <h2 style="color: #2c5282;">Essay Ideas</h2>
-                    <div style="margin-bottom: 30px;">
-                        {essay_ideas.replace('\n\n', '</p><p>').replace('\n', '<br>')}
+            <head>
+                <meta charset="UTF-8">
+                <style>
+                    body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }}
+                    .container {{ max-width: 700px; margin: 0 auto; padding: 30px; background-color: #ffffff; }}
+                    .section {{ margin-bottom: 40px; }}
+                    .header {{ color: #2c5282; border-bottom: 3px solid #e9ecef; padding-bottom: 10px; margin-bottom: 25px; }}
+                    a {{ color: #2c5282; }}
+                    a:hover {{ color: #1a365d; }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="section">
+                        <h1 class="header">💡 Essay Ideas</h1>
+                        <div>
+                            {essay_ideas_html}
+                        </div>
                     </div>
                     
-                    <h2 style="color: #2c5282;">Recommended Reading</h2>
-                    <div style="margin-bottom: 30px;">
-                        {book_recommendations.replace('\n\n', '</p><p>').replace('\n', '<br>')}
+                    <div class="section">
+                        <h1 class="header">📖 Supporting Materials</h1>
+                        <div>
+                            {supporting_materials_html}
+                        </div>
                     </div>
+                    
+                    {citations_html}
                 </div>
             </body>
         </html>
@@ -203,9 +310,9 @@ def send_email(subject, essay_ideas, book_recommendations, to_email, from_email,
         # Send the message via the server
         s.send_message(msg)
         s.quit()
-        print("Email sent successfully")
+        logger.info("Email sent successfully")
     except Exception as e:
-        print(f"Error occurred while sending email: {e}")
+        logger.error(f"Error occurred while sending email: {e}")
 
 def main():
     dropbox_vault_path = os.getenv('DROPBOX_OBSIDIAN_VAULT_PATH')
@@ -214,7 +321,7 @@ def main():
     to_email = from_email  # or another recipient
 
     if not dropbox_vault_path:
-        print("Error: DROPBOX_OBSIDIAN_VAULT_PATH environment variable not set")
+        logger.error("Error: DROPBOX_OBSIDIAN_VAULT_PATH environment variable not set")
         return
     
     try:
@@ -224,27 +331,33 @@ def main():
 
         # Fetch today's journal entry
         journal_text = fetch_today_journal_entry(journal_folder_path)
+        logger.info("Successfully fetched today's journal entry")
 
-        # Generate separate recommendations
+        # Generate essay ideas
         essay_ideas = get_essay_ideas_from_openai(journal_text)
-        book_recommendations = get_book_recommendations(journal_text)
+        logger.info("Successfully generated essay ideas")
+
+        # Get supporting materials using web search
+        supporting_materials, citations = get_supporting_materials_with_web_search(journal_text, essay_ideas)
+        logger.info(f"Successfully found supporting materials with {len(citations)} citations")
 
         # Current date in mm/dd/yyyy format
         current_date = datetime.now().strftime("%m/%d/%Y")
 
         # Send the email
         send_email(
-            subject=f"Essay Ideas & Reading List ({current_date})",
+            subject=f"Essay Ideas & Supporting Materials ({current_date})",
             essay_ideas=essay_ideas,
-            book_recommendations=book_recommendations,
+            supporting_materials=supporting_materials,
+            citations=citations,
             to_email=to_email,
             from_email=from_email,
             password=password
         )
     except FileNotFoundError as e:
-        print(f"Error: {e}")
+        logger.error(f"Error: {e}")
     except Exception as e:
-        print(f"An unexpected error occurred: {e}")
+        logger.error(f"An unexpected error occurred: {e}")
 
 if __name__ == "__main__":
     main()
