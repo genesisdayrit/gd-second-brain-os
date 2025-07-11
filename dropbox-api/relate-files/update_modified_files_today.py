@@ -174,19 +174,33 @@ def update_journal_property(file_path):
             # Look for an existing 'Journal:' property
             journal_match = re.search(r'Journal:\s*(.*?)(?=\n\S|$)', properties_section, re.DOTALL)
             if journal_match:
-                journal_entries = journal_match.group(1).splitlines()
-
-                # Detect indentation from the first line
-                if journal_entries:
-                    indentation = " " * (len(journal_entries[0]) - len(journal_entries[0].lstrip()))
-                else:
-                    indentation = "    "
-
-                # Append the new date
-                formatted_date_entry = f"{indentation}- \"[[{formatted_date}]]\""
-                journal_entries.append(formatted_date_entry)
-
-                updated_journal = "Journal:\n" + "\n".join(journal_entries)
+                journal_entries_raw = journal_match.group(1).splitlines()
+                
+                # Extract the actual journal entry values (clean up existing entries)
+                journal_values = []
+                for line in journal_entries_raw:
+                    line = line.strip()
+                    if line:
+                        # Remove existing dash and quotes, extract the content
+                        # Handle formats like: - "[[Date]]" or "[[Date]]" or - [[Date]]
+                        if line.startswith('- '):
+                            line = line[2:].strip()
+                        if line.startswith('"') and line.endswith('"'):
+                            line = line[1:-1]
+                        if line.startswith('[[') and line.endswith(']]'):
+                            journal_values.append(line)
+                
+                # Add the new date if it's not already present
+                new_entry = f"[[{formatted_date}]]"
+                if new_entry not in journal_values:
+                    journal_values.append(new_entry)
+                
+                # Rebuild all entries with consistent indentation (2 spaces + dash + space)
+                formatted_entries = []
+                for value in journal_values:
+                    formatted_entries.append(f"  - \"{value}\"")
+                
+                updated_journal = "Journal:\n" + "\n".join(formatted_entries)
                 updated_properties = re.sub(
                     r'Journal:\s*(.*?)(?=\n\S|$)',
                     updated_journal,
