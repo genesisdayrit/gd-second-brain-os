@@ -3,6 +3,7 @@ import redis
 import dropbox
 import yaml 
 import logging
+import re
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
 import pytz
@@ -138,6 +139,77 @@ def lookup_file_in_folder(folder_path, file_template):
     logger.warning(f"No file containing '{file_template}' found in '{folder_path}'.")
     return None, None
 
+def parse_date_range_from_filename(filename, target_date):
+    """
+    Parse date range from filenames like:
+    - "6-Week Cycle (2025.01.15 - 2025.02.25).md"
+    - "2-Week Cooling Period (2025.02.26 - 2025.03.11).md"
+    
+    Returns True if target_date falls within the date range.
+    """
+    # Pattern to match date ranges in format (yyyy.mm.dd - yyyy.mm.dd)
+    pattern = r'\((\d{4}\.\d{2}\.\d{2}) - (\d{4}\.\d{2}\.\d{2})\)'
+    match = re.search(pattern, filename)
+    
+    if not match:
+        return False
+    
+    start_str, end_str = match.groups()
+    
+    try:
+        # Convert yyyy.mm.dd to date objects
+        start_date = datetime.strptime(start_str, '%Y.%m.%d').date()
+        end_date = datetime.strptime(end_str, '%Y.%m.%d').date()
+        
+        # Check if target_date falls within the range (inclusive)
+        return start_date <= target_date <= end_date
+        
+    except ValueError as e:
+        logger.warning(f"Could not parse dates from filename '{filename}': {e}")
+        return False
+
+def get_long_cycle_filename():
+    """
+    Scan the _6-Week-Cycles folder and find which file contains tomorrow's date.
+    Returns the filename string that matches tomorrow's date range.
+    """
+    tomorrow = get_tomorrow().date()
+    
+    vault_path = os.getenv("DROPBOX_OBSIDIAN_VAULT_PATH")
+    if not vault_path:
+        logger.error("DROPBOX_OBSIDIAN_VAULT_PATH environment variable is not set.")
+        return None
+    
+    # Find the _Cycles parent folder
+    cycles_folder = find_folder_in_path(vault_path, "_Cycles")
+    if not cycles_folder:
+        logger.error("Could not find _Cycles folder in vault.")
+        return None
+    
+    # Find the _6-Week-Cycles subfolder
+    six_week_cycles_folder = find_folder_in_path(cycles_folder, "_6-Week-Cycles")
+    if not six_week_cycles_folder:
+        logger.error("Could not find _6-Week-Cycles folder.")
+        return None
+    
+    # Get all files in the folder
+    entries = list_all_entries(six_week_cycles_folder)
+    
+    for entry in entries:
+        if isinstance(entry, dropbox.files.FileMetadata):
+            filename = entry.name
+            
+            # Extract date range from filename
+            if parse_date_range_from_filename(filename, tomorrow):
+                # Remove .md extension if present
+                if filename.lower().endswith('.md'):
+                    filename = filename[:-3]
+                logger.info(f"Found matching long cycle file: {filename}")
+                return filename
+    
+    logger.warning(f"No long cycle file found containing tomorrow's date: {tomorrow}")
+    return None
+
 def process_mapping(mapping, vault_path):
     """
     Processes a mapping object:
@@ -185,6 +257,7 @@ def get_dynamic_mappings():
     filenames = get_week_ending_filenames()
     cycle_date_range = get_cycle_date_range()
     weekly_newsletter = get_weekly_newsletter_filename()
+    long_cycle_filename = get_long_cycle_filename()
 
     # Define mappings with an added "key" property to designate YAML keys.
     mappings = [
@@ -219,6 +292,15 @@ def get_dynamic_mappings():
             "target_file_string": weekly_newsletter
         }
     ]
+
+    # Only add the _Long-Cycle mapping if we found a matching file
+    if long_cycle_filename:
+        mappings.append({
+            "key": "_Long-Cycle",
+            "parent_folder": "_Cycles",
+            "target_folder": "_6-Week-Cycles",
+            "target_file_string": long_cycle_filename
+        })
 
     vault_path = os.getenv("DROPBOX_OBSIDIAN_VAULT_PATH")
     if not vault_path:
@@ -323,7 +405,7 @@ def update_yaml_metadata(metadata, dynamic_mappings):
     metadata["Date"] = get_tomorrow_iso_date()
 
     # Define which keys should be list properties
-    list_keys = {"Weeks", "_Weekly Health Reviews", "_Cycles", "Daily Action"}
+    list_keys = {"Weeks", "_Weekly Health Reviews", "_Cycles", "_Long-Cycle", "Daily Action"}
 
     for key, relationship in dynamic_mappings.items():
         if key in list_keys:
