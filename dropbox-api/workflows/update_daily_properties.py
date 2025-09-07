@@ -95,6 +95,41 @@ def get_tomorrow_filename():
     except Exception:
         return tomorrow.strftime('%b %#d, %Y.md')
 
+def get_one_year_ago_date():
+    """
+    Calculate one year ago from tomorrow's date with proper leap year handling.
+    For Feb 29 on leap years, falls back to Feb 28 on non-leap years.
+    """
+    tomorrow = get_tomorrow()
+    try:
+        # Try to get the same date one year ago
+        one_year_ago = tomorrow.replace(year=tomorrow.year - 1)
+        return one_year_ago
+    except ValueError:
+        # This happens when tomorrow is Feb 29 and last year wasn't a leap year
+        # Fall back to Feb 28
+        if tomorrow.month == 2 and tomorrow.day == 29:
+            one_year_ago = tomorrow.replace(year=tomorrow.year - 1, day=28)
+            logger.info(f"Leap year adjustment: Feb 29 -> Feb 28 for year {tomorrow.year - 1}")
+            return one_year_ago
+        else:
+            # Re-raise if it's a different kind of error
+            raise
+
+def get_one_year_ago_filename():
+    """
+    Format one year ago date to match the journal filename format for the 'On this Day' property.
+    Note: For Linux/macOS use '%-d', for Windows '%#d'
+    """
+    one_year_ago = get_one_year_ago_date()
+    try:
+        filename = one_year_ago.strftime('%b %-d, %Y')
+    except Exception:
+        filename = one_year_ago.strftime('%b %#d, %Y')
+    
+    logger.info(f"One year ago filename: {filename}")
+    return filename
+
 # --- Dropbox File/Folder Helper Functions ---
 def list_all_entries(base_path):
     """Lists all entries in a folder, handling pagination."""
@@ -396,8 +431,9 @@ def extract_yaml_metadata(file_content):
 def update_yaml_metadata(metadata, dynamic_mappings):
     """
     Update YAML metadata with tomorrow's day of week, date, dynamic relationship mappings,
-    and add the Daily Action property as a list relationship.
-    For keys that should be lists (e.g., 'Weeks', '_Weekly Health Reviews', '_Cycles', 'Daily Action'),
+    add the Daily Action property as a list relationship, and add the 'On this Day' property
+    with the one year ago journal reference.
+    For keys that should be lists (e.g., 'Weeks', '_Weekly Health Reviews', '_Cycles', 'Daily Action', 'On this Day'),
     the value is assigned as a list.
     """
     # Update simple fields using tomorrow's date
@@ -405,7 +441,7 @@ def update_yaml_metadata(metadata, dynamic_mappings):
     metadata["Date"] = get_tomorrow_iso_date()
 
     # Define which keys should be list properties
-    list_keys = {"Weeks", "_Weekly Health Reviews", "_Cycles", "_Long-Cycle", "Daily Action"}
+    list_keys = {"Weeks", "_Weekly Health Reviews", "_Cycles", "_Long-Cycle", "Daily Action", "On this Day"}
 
     for key, relationship in dynamic_mappings.items():
         if key in list_keys:
@@ -416,6 +452,10 @@ def update_yaml_metadata(metadata, dynamic_mappings):
     # Add the Daily Action property as a list relationship formatted as '[[DA YYYY-MM-DD]]'
     daily_action = f"[[DA {get_tomorrow_date()}]]"
     metadata["Daily Action"] = [daily_action]
+
+    # Add the 'On this Day' property with one year ago journal reference
+    one_year_ago_filename = get_one_year_ago_filename()
+    metadata["On this Day"] = [f"[[{one_year_ago_filename}]]"]
 
     return metadata
 
