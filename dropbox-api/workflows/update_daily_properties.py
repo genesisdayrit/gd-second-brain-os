@@ -480,20 +480,18 @@ def save_updated_file(file_path, file_name, updated_metadata, content):
 # --- Main Workflow ---
 def main():
     try:
-        # Step 1: Generate dynamic mappings based on tomorrow's date and file lookups.
-        dynamic_mappings = get_dynamic_mappings()
-        logger.info(f"Dynamic mappings: {dynamic_mappings}")
-
-        # Step 2: Locate tomorrow's journal note using a dynamic lookup of _Daily then _Journal.
+        # Step 1: Check if tomorrow's journal exists first (early exit if not found)
         vault_path = os.getenv("DROPBOX_OBSIDIAN_VAULT_PATH")
         if not vault_path:
             logger.error("DROPBOX_OBSIDIAN_VAULT_PATH environment variable is not set.")
             return
+        
+        logger.info("Checking if tomorrow's journal exists before proceeding...")
         journal_folder_path = get_journal_folder_path(vault_path)
         journal_file_path, journal_file_name = find_tomorrow_journal_entry(journal_folder_path)
-        logger.info(f"Tomorrow's journal entry located at: {journal_file_path}")
+        logger.info(f"Tomorrow's journal entry found at: {journal_file_path}")
 
-        # Step 3: Retrieve file content and extract YAML front matter.
+        # Step 2: Retrieve file content and extract YAML front matter (early validation)
         file_content = retrieve_file_content(journal_file_path)
         if not file_content:
             logger.error("Unable to retrieve journal file content.")
@@ -503,12 +501,19 @@ def main():
             logger.error("No valid YAML metadata found in journal file.")
             return
 
+        # Step 3: Now that we know the journal exists, generate dynamic mappings (expensive operations)
+        logger.info("Journal found - proceeding with dynamic mappings lookup...")
+        dynamic_mappings = get_dynamic_mappings()
+        logger.info(f"Dynamic mappings: {dynamic_mappings}")
+
         # Step 4: Update YAML metadata with tomorrow's date info, dynamic mappings, and Daily Action.
         updated_metadata = update_yaml_metadata(metadata, dynamic_mappings)
 
         # Step 5: Save the updated journal file back to Dropbox.
         save_updated_file(journal_file_path, journal_file_name, updated_metadata, remaining_content)
 
+    except FileNotFoundError as e:
+        logger.warning(f"Tomorrow's journal not found - skipping update: {e}")
     except Exception as e:
         logger.error(f"An error occurred: {e}")
 
