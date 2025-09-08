@@ -77,6 +77,22 @@ def get_cycle_date_range():
     cycle_end = cycle_start + timedelta(days=6)
     return f"{cycle_start.strftime('%b. %d')} - {cycle_end.strftime('%b. %d, %Y')}"
 
+def get_week_ending_sunday():
+    """Get the date of the Sunday ending the week that contains tomorrow."""
+    tomorrow = get_tomorrow()
+    # Sunday is 6 (Monday = 0)
+    days_until_sunday = (6 - tomorrow.weekday()) % 7
+    week_ending = tomorrow + timedelta(days=days_until_sunday)
+    return week_ending.strftime('%Y-%m-%d')
+
+def get_week_ending_filenames():
+    """Get filename strings for week-ending related files."""
+    week_ending = get_week_ending_sunday()
+    return {
+        "week_ending": f"Week-Ending-{week_ending}",
+        "weekly_map": f"Weekly Map {week_ending}"
+    }
+
 # --- File Discovery Utility Functions ---
 def list_all_entries(base_path):
     """Lists all entries in a folder, handling pagination."""
@@ -252,8 +268,40 @@ def find_long_cycle_link(vault_path):
         logger.error(f"Error finding long cycle link: {e}")
         return ""
 
+def find_weekly_map_link(vault_path):
+    """Find weekly map file for tomorrow's date."""
+    try:
+        # Navigate: vault → _Weekly → _Weekly-Maps → find file matching weekly_map filename
+        weekly_folder = find_folder_in_path(vault_path, "_Weekly")
+        if not weekly_folder:
+            logger.warning("Could not find _Weekly folder for weekly map lookup.")
+            return ""
+        
+        weekly_maps_folder = find_folder_in_path(weekly_folder, "_Weekly-Maps")
+        if not weekly_maps_folder:
+            logger.warning("Could not find _Weekly-Maps folder.")
+            return ""
+        
+        filenames = get_week_ending_filenames()
+        weekly_map_filename = filenames["weekly_map"]
+        file_path, file_name = lookup_file_in_folder(weekly_maps_folder, weekly_map_filename)
+        
+        if file_path and file_name:
+            # Remove .md extension if present
+            base_name = file_name
+            if base_name.lower().endswith('.md'):
+                base_name = base_name[:-3]
+            return f"[[{base_name}]]"
+        else:
+            logger.warning(f"No weekly map file found for: {weekly_map_filename}")
+            return ""
+            
+    except Exception as e:
+        logger.error(f"Error finding weekly map link: {e}")
+        return ""
+
 def generate_yaml_properties(vault_path):
-    """Generate the three YAML properties with relationship links."""
+    """Generate the YAML properties with relationship links."""
     # Journal link - simple date formatting (not a list)
     journal_filename = get_tomorrow_journal_filename()
     journal_link = f"[[{journal_filename}]]"
@@ -266,10 +314,15 @@ def generate_yaml_properties(vault_path):
     long_cycle_link = find_long_cycle_link(vault_path)
     long_cycle_list = [long_cycle_link] if long_cycle_link else []
     
+    # Weekly map link (should be a list)
+    weekly_map_link = find_weekly_map_link(vault_path)
+    weekly_map_list = [weekly_map_link] if weekly_map_link else []
+    
     return {
         'journal': journal_link,
         'weekly_cycle': weekly_cycle_list,
-        'long_cycle': long_cycle_list
+        'long_cycle': long_cycle_list,
+        'weekly_map': weekly_map_list
     }
 
 def create_daily_action_file(daily_action_folder_path, vault_path):
@@ -288,7 +341,8 @@ def create_daily_action_file(daily_action_folder_path, vault_path):
     yaml_metadata = {
         '_Journal': yaml_props['journal'],
         '_Weekly-Cycle': yaml_props['weekly_cycle'],
-        '_Long-Cycle': yaml_props['long_cycle']
+        '_Long-Cycle': yaml_props['long_cycle'],
+        '_Weekly-Map': yaml_props['weekly_map']
     }
     
     yaml_str = yaml.safe_dump(yaml_metadata, default_flow_style=False, sort_keys=False)
