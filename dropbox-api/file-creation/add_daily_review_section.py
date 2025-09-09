@@ -45,14 +45,49 @@ def find_daily_action_folder(vault_path):
             return entry.path_lower
     raise FileNotFoundError("Could not find a folder ending with '_Daily-Action' in Dropbox")
 
+def parse_yaml_frontmatter(content):
+    """
+    Parse YAML frontmatter from markdown content.
+    Returns a tuple of (yaml_section, main_content).
+    """
+    if not content.startswith('---\n'):
+        # No YAML frontmatter found
+        return "", content
+    
+    # Find the closing --- for YAML frontmatter
+    lines = content.split('\n')
+    yaml_end_index = -1
+    
+    for i, line in enumerate(lines[1:], 1):  # Start from line 1 (skip first ---)
+        if line.strip() == '---':
+            yaml_end_index = i
+            break
+    
+    if yaml_end_index == -1:
+        # No closing --- found, treat as no YAML frontmatter
+        return "", content
+    
+    # Extract YAML section (including the --- delimiters)
+    yaml_lines = lines[:yaml_end_index + 1]
+    yaml_section = '\n'.join(yaml_lines) + '\n\n'
+    
+    # Extract main content (everything after the closing ---)
+    main_content_lines = lines[yaml_end_index + 1:]
+    main_content = '\n'.join(main_content_lines)
+    
+    # Remove leading newlines from main content
+    main_content = main_content.lstrip('\n')
+    
+    return yaml_section, main_content
+
 def add_daily_review_section(daily_action_folder_path):
-    """Find today's file and add a 'Daily Review' section at the top."""
+    """Find today's file and add a 'Daily Review' section after YAML frontmatter."""
     # Get today's date to find the file
     today_date_str = datetime.now().strftime('%Y-%m-%d')
     file_name = f"DA {today_date_str}.md"
     dropbox_file_path = f"{daily_action_folder_path}/{file_name}"
 
-    # Define the 'Daily Review' content to be added at the top of the file
+    # Define the 'Daily Review' content to be added after YAML frontmatter
     daily_review_content = (
         "Daily Review:\n\n"
         "Win 1:\n\n"
@@ -71,12 +106,20 @@ def add_daily_review_section(daily_action_folder_path):
         _, response = dbx.files_download(dropbox_file_path)
         current_content = response.content.decode('utf-8')
         
-        # Combine the 'Daily Review' section with the existing content
-        updated_content = daily_review_content + current_content
+        # Parse YAML frontmatter and main content
+        yaml_section, main_content = parse_yaml_frontmatter(current_content)
+        
+        # Check if daily review section already exists
+        if "Daily Review:" in current_content:
+            print(f"Daily Review section already exists in '{file_name}'. No changes made.")
+            return
+        
+        # Combine YAML frontmatter + Daily Review + main content
+        updated_content = yaml_section + daily_review_content + main_content
 
         # Upload the updated content back to Dropbox, overwriting the original file
         dbx.files_upload(updated_content.encode('utf-8'), dropbox_file_path, mode=dropbox.files.WriteMode.overwrite)
-        print(f"Successfully added 'Daily Review' section to '{file_name}'.")
+        print(f"Successfully added 'Daily Review' section to '{file_name}' after YAML frontmatter.")
         
     except dropbox.exceptions.ApiError as e:
         print(f"Error: Could not find today's file '{file_name}' in Dropbox.")
