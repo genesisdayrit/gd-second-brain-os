@@ -14,3 +14,5 @@ prompts/
 ai-helpers/
 
 config/crontab/snapshots/*
+
+templates/
