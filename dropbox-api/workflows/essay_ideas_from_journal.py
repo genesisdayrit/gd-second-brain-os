@@ -79,7 +79,7 @@ def find_journal_folder(daily_folder_path):
 
 def fetch_today_journal_entry(journal_folder_path):
     """
-    Fetch today's journal entry from the '_Journal' folder, assuming lowercase file names.
+    Fetch yesterday's journal entry from the '_Journal' folder, assuming lowercase file names.
     """
     # Set up timezones
     system_tz = timezone(timezone_str)
@@ -87,7 +87,9 @@ def fetch_today_journal_entry(journal_folder_path):
 
     # Current time in system timezone and UTC
     now_system = datetime.now(system_tz)
-    today_date = now_system.strftime("%b %-d, %Y").lower()  # e.g., "nov 15, 2024"
+    # Subtract one day to get yesterday's date
+    yesterday = now_system - timedelta(days=1)
+    yesterday_date = yesterday.strftime("%b %-d, %Y").lower()
 
     # List all files in the folder
     result = dbx.files_list_folder(journal_folder_path)
@@ -102,16 +104,16 @@ def fetch_today_journal_entry(journal_folder_path):
             break
         result = dbx.files_list_folder_continue(result.cursor)
 
-    # Search for today's file
+    # Search for yesterday's file
     for entry in all_files:
         file_name = entry.name.strip().lower()  # Ensure lowercase
-        if file_name == f"{today_date}.md":  # Match today's file
+        if file_name == f"{yesterday_date}.md":  # Match yesterday's file
             # Download and return the file contents
             metadata, response = dbx.files_download(entry.path_lower)
             return response.content.decode('utf-8')
 
     # Raise an error if no match is found
-    raise FileNotFoundError(f"Today's journal entry ({today_date}) not found in the '_Journal' folder.")
+    raise FileNotFoundError(f"Yesterday's journal entry ({yesterday_date}) not found in the '_Journal' folder.")
 
 def get_essay_ideas_from_openai(journal_text):
     """Generate essay ideas from today's journal text using OpenAI GPT-4."""
