@@ -1,7 +1,6 @@
 import os
 import sys
 import re
-from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
 # Get the directory of the script
@@ -23,16 +22,16 @@ def find_cycles_folder(base_path):
 def validate_file_format(filename):
     """
     Validate that filename matches one of the expected formats:
-    - 6-Week Cycle (YYYY.MM.DD - YYYY.MM.DD).md
-    - 2-Week Cooling Period (YYYY.MM.DD - YYYY.MM.DD).md
+    - 6-Week Cycle {number} (YYYY.MM.DD - YYYY.MM.DD).md
+    - 2-Week Cooling Period {number} (YYYY.MM.DD - YYYY.MM.DD).md
     
     Returns: (is_valid, error_message)
     """
-    # Pattern for 6-Week Cycle: dates should have zero-padded month and day
-    six_week_pattern = r'^6-Week Cycle \(\d{4}\.\d{2}\.\d{2} - \d{4}\.\d{2}\.\d{2}\)\.md$'
+    # Pattern for 6-Week Cycle: must include number, dates should have zero-padded month and day
+    six_week_pattern = r'^6-Week Cycle \d+ \(\d{4}\.\d{2}\.\d{2} - \d{4}\.\d{2}\.\d{2}\)\.md$'
     
-    # Pattern for 2-Week Cooling Period: dates should have zero-padded month and day
-    cooling_pattern = r'^2-Week Cooling Period \(\d{4}\.\d{2}\.\d{2} - \d{4}\.\d{2}\.\d{2}\)\.md$'
+    # Pattern for 2-Week Cooling Period: must include number, dates should have zero-padded month and day
+    cooling_pattern = r'^2-Week Cooling Period \d+ \(\d{4}\.\d{2}\.\d{2} - \d{4}\.\d{2}\.\d{2}\)\.md$'
     
     if re.match(six_week_pattern, filename):
         return True, None
@@ -41,9 +40,9 @@ def validate_file_format(filename):
     else:
         # Try to identify what's wrong
         if filename.startswith("6-Week Cycle"):
-            return False, "6-Week Cycle format issue (dates should be YYYY.MM.DD with zero-padding)"
+            return False, "6-Week Cycle format issue (must include number and dates should be YYYY.MM.DD with zero-padding)"
         elif filename.startswith("2-Week Cooling Period"):
-            return False, "2-Week Cooling Period format issue (dates should be YYYY.MM.DD with zero-padding)"
+            return False, "2-Week Cooling Period format issue (must include number and dates should be YYYY.MM.DD with zero-padding)"
         else:
             return False, "Unknown file format"
 
