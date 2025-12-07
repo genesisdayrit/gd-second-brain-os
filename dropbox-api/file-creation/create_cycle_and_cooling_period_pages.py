@@ -1,5 +1,6 @@
 import os
 import sys
+import re
 import redis
 import dropbox
 from datetime import datetime, timedelta
@@ -327,8 +328,155 @@ def format_date_for_filename(date_str):
     date_obj = datetime.strptime(date_str, '%Y-%m-%d')
     return date_obj.strftime('%Y.%m.%d')
 
+def has_future_coverage(folder_path, cycle_type, today_date):
+    """
+    Check if there's at least one file of this type with an end date in the future.
+    
+    Args:
+        folder_path: Path to the _6-Week-Cycles folder in Dropbox
+        cycle_type: Either "6-Week Cycle" or "2-Week Cooling Period"
+        today_date: datetime object for today
+    
+    Returns:
+        tuple: (has_coverage, latest_end_date, latest_filename)
+    """
+    try:
+        # List all files in the folder
+        response = dbx.files_list_folder(folder_path)
+        entries = response.entries
+        
+        # Handle pagination
+        while response.has_more:
+            response = dbx.files_list_folder_continue(response.cursor)
+            entries.extend(response.entries)
+        
+        # Pattern to extract dates from filename
+        pattern = rf'^{re.escape(cycle_type)} \d+ \((\d{{4}}\.\d{{2}}\.\d{{2}}) - (\d{{4}}\.\d{{2}}\.\d{{2}})\)\.md$'
+        
+        future_files = []
+        for entry in entries:
+            if isinstance(entry, dropbox.files.FileMetadata):
+                match = re.match(pattern, entry.name)
+                if match:
+                    end_date_str = match.group(2)  # End date
+                    end_date = datetime.strptime(end_date_str, '%Y.%m.%d')
+                    
+                    # Check if end date is in the future
+                    if end_date > today_date:
+                        future_files.append({
+                            'filename': entry.name,
+                            'end_date': end_date
+                        })
+        
+        if future_files:
+            # Find the latest future end date
+            latest = max(future_files, key=lambda x: x['end_date'])
+            return True, latest['end_date'], latest['filename']
+        else:
+            return False, None, None
+            
+    except dropbox.exceptions.ApiError as e:
+        print(f"Error checking future coverage: {e}")
+        return False, None, None
+
+def get_next_cycle_number(folder_path, cycle_type):
+    """
+    Get the next sequential number for a cycle type by finding the file with the
+    latest end date and adding 1 to its number.
+    
+    Args:
+        folder_path: Path to the _6-Week-Cycles folder in Dropbox
+        cycle_type: Either "6-Week Cycle" or "2-Week Cooling Period"
+    
+    Returns:
+        int: Next number to use (latest file's number + 1, or 1 if none exist)
+    """
+    try:
+        # List all files in the folder
+        response = dbx.files_list_folder(folder_path)
+        entries = response.entries
+        
+        # Handle pagination
+        while response.has_more:
+            response = dbx.files_list_folder_continue(response.cursor)
+            entries.extend(response.entries)
+        
+        # Pattern to extract number and dates from filename
+        # e.g., "6-Week Cycle 5 (2025.06.14 - 2025.07.25).md"
+        pattern = rf'^{re.escape(cycle_type)} (\d+) \((\d{{4}}\.\d{{2}}\.\d{{2}}) - (\d{{4}}\.\d{{2}}\.\d{{2}})\)\.md$'
+        
+        files_data = []
+        for entry in entries:
+            if isinstance(entry, dropbox.files.FileMetadata):
+                match = re.match(pattern, entry.name)
+                if match:
+                    number = int(match.group(1))
+                    end_date_str = match.group(3)  # The second date (end date)
+                    # Parse end date
+                    end_date = datetime.strptime(end_date_str, '%Y.%m.%d')
+                    files_data.append({
+                        'number': number,
+                        'end_date': end_date,
+                        'filename': entry.name
+                    })
+        
+        if not files_data:
+            # No files exist yet, start at 1
+            return 1
+        
+        # Find the file with the latest end date
+        latest_file = max(files_data, key=lambda x: x['end_date'])
+        
+        print(f"Latest {cycle_type} file: {latest_file['filename']} (number: {latest_file['number']})")
+        
+        # Return that file's number + 1
+        return latest_file['number'] + 1
+        
+    except dropbox.exceptions.ApiError as e:
+        print(f"Error listing folder to get next number: {e}")
+        # Default to 1 if we can't read the folder
+        return 1
+
 def create_cycle_files(weekly_cycles_path):
     """Create Markdown files for each cycle period in Dropbox"""
+    
+    # Check if we already have future coverage
+    today_date = datetime.now()
+    
+    print("\nChecking existing file coverage...")
+    print("=" * 70)
+    
+    cooling_has_future, cooling_latest_date, cooling_latest_file = has_future_coverage(
+        weekly_cycles_path, "2-Week Cooling Period", today_date
+    )
+    
+    cycle_has_future, cycle_latest_date, cycle_latest_file = has_future_coverage(
+        weekly_cycles_path, "6-Week Cycle", today_date
+    )
+    
+    if cooling_has_future:
+        print(f"✓ 2-Week Cooling Period: Already covered until {cooling_latest_date.strftime('%Y-%m-%d')}")
+        print(f"  Latest future file: {cooling_latest_file}")
+    else:
+        print(f"✗ 2-Week Cooling Period: No future coverage found")
+    
+    if cycle_has_future:
+        print(f"✓ 6-Week Cycle: Already covered until {cycle_latest_date.strftime('%Y-%m-%d')}")
+        print(f"  Latest future file: {cycle_latest_file}")
+    else:
+        print(f"✗ 6-Week Cycle: No future coverage found")
+    
+    # Only proceed if at least one type needs files
+    if cooling_has_future and cycle_has_future:
+        print("\n" + "=" * 70)
+        print("✓ Both cycle types have future coverage. No new files needed.")
+        print("=" * 70)
+        return
+    
+    print("\n" + "=" * 70)
+    print("Proceeding to create missing files...")
+    print("=" * 70)
+    
     # Get cycle dates from Redis
     current_cooling_start = r.get('two_week_cooling_period_start_date')
     current_cooling_end = r.get('two_week_cooling_period_end_date')
@@ -351,11 +499,18 @@ def create_cycle_files(weekly_cycles_path):
     next_cycle_start_fmt = format_date_for_filename(next_cycle_start)
     next_cycle_end_fmt = format_date_for_filename(next_cycle_end)
     
-    # Define filenames
-    current_cooling_filename = f"2-Week Cooling Period ({current_cooling_start_fmt} - {current_cooling_end_fmt}).md"
-    next_cooling_filename = f"2-Week Cooling Period ({next_cooling_start_fmt} - {next_cooling_end_fmt}).md"
-    current_cycle_filename = f"6-Week Cycle ({current_cycle_start_fmt} - {current_cycle_end_fmt}).md"
-    next_cycle_filename = f"6-Week Cycle ({next_cycle_start_fmt} - {next_cycle_end_fmt}).md"
+    # Get next sequential numbers based on latest end dates
+    print("\nDetermining next cycle numbers...")
+    next_cooling_number = get_next_cycle_number(weekly_cycles_path, "2-Week Cooling Period")
+    next_cycle_number = get_next_cycle_number(weekly_cycles_path, "6-Week Cycle")
+    print(f"Next 2-Week Cooling Period number: {next_cooling_number}")
+    print(f"Next 6-Week Cycle number: {next_cycle_number}\n")
+    
+    # Define filenames WITH numbers
+    current_cooling_filename = f"2-Week Cooling Period {next_cooling_number} ({current_cooling_start_fmt} - {current_cooling_end_fmt}).md"
+    next_cooling_filename = f"2-Week Cooling Period {next_cooling_number + 1} ({next_cooling_start_fmt} - {next_cooling_end_fmt}).md"
+    current_cycle_filename = f"6-Week Cycle {next_cycle_number} ({current_cycle_start_fmt} - {current_cycle_end_fmt}).md"
+    next_cycle_filename = f"6-Week Cycle {next_cycle_number + 1} ({next_cycle_start_fmt} - {next_cycle_end_fmt}).md"
     
     files_to_create = [
         (current_cooling_filename, "current 2-week cooling period"),
