@@ -53,81 +53,81 @@ def get_tomorrow():
     """Return tomorrow's datetime object in the configured timezone."""
     return get_target_day(use_today=False)
 
-def get_day_of_week():
-    tomorrow = get_tomorrow()
-    return tomorrow.strftime('%A')
+def get_day_of_week(use_today=False):
+    target_day = get_target_day(use_today)
+    return target_day.strftime('%A')
 
-def get_week_ending_sunday():
-    tomorrow = get_tomorrow()
+def get_week_ending_sunday(use_today=False):
+    target_day = get_target_day(use_today)
     # Sunday is 6 (Monday = 0)
-    days_until_sunday = (6 - tomorrow.weekday()) % 7
-    week_ending = tomorrow + timedelta(days=days_until_sunday)
+    days_until_sunday = (6 - target_day.weekday()) % 7
+    week_ending = target_day + timedelta(days=days_until_sunday)
     return week_ending.strftime('%Y-%m-%d')
 
-def get_week_ending_filenames():
-    week_ending = get_week_ending_sunday()
+def get_week_ending_filenames(use_today=False):
+    week_ending = get_week_ending_sunday(use_today)
     return {
         "week_ending": f"Week-Ending-{week_ending}",
         "weekly_map": f"Weekly Map {week_ending}"
     }
 
-def get_cycle_date_range():
-    tomorrow = get_tomorrow()
-    # Wednesday = 2; compute days since last Wednesday based on tomorrow
-    days_since_wednesday = (tomorrow.weekday() - 2) % 7
-    cycle_start = tomorrow - timedelta(days=days_since_wednesday)
+def get_cycle_date_range(use_today=False):
+    target_day = get_target_day(use_today)
+    # Wednesday = 2; compute days since last Wednesday based on target day
+    days_since_wednesday = (target_day.weekday() - 2) % 7
+    cycle_start = target_day - timedelta(days=days_since_wednesday)
     cycle_end = cycle_start + timedelta(days=6)
     return f"{cycle_start.strftime('%b. %d')} - {cycle_end.strftime('%b. %d, %Y')}"
 
-def get_weekly_newsletter_filename():
-    week_end_date_str = get_week_ending_sunday()  # "YYYY-MM-DD"
+def get_weekly_newsletter_filename(use_today=False):
+    week_end_date_str = get_week_ending_sunday(use_today)  # "YYYY-MM-DD"
     week_end_date = datetime.strptime(week_end_date_str, '%Y-%m-%d')
     return week_end_date.strftime("Weekly Newsletter %b. %d, %Y")
 
-def get_tomorrow_date():
-    return get_tomorrow().strftime('%Y-%m-%d')
+def get_tomorrow_date(use_today=False):
+    return get_target_day(use_today).strftime('%Y-%m-%d')
 
-def get_tomorrow_iso_date():
-    return get_tomorrow_date()
+def get_tomorrow_iso_date(use_today=False):
+    return get_tomorrow_date(use_today)
 
-def get_tomorrow_filename():
+def get_tomorrow_filename(use_today=False):
     """
-    Format tomorrow's date to match the journal filename format.
+    Format target day's date to match the journal filename format.
     Note: For Linux/macOS use '%-d', for Windows '%#d'
     """
-    tomorrow = get_tomorrow()
+    target_day = get_target_day(use_today)
     try:
-        return tomorrow.strftime('%b %-d, %Y.md')
+        return target_day.strftime('%b %-d, %Y.md')
     except Exception:
-        return tomorrow.strftime('%b %#d, %Y.md')
+        return target_day.strftime('%b %#d, %Y.md')
 
-def get_one_year_ago_date():
+def get_one_year_ago_date(use_today=False):
     """
-    Calculate one year ago from tomorrow's date with proper leap year handling.
+    Calculate one year ago from target day's date with proper leap year handling.
     For Feb 29 on leap years, falls back to Feb 28 on non-leap years.
     """
-    tomorrow = get_tomorrow()
+    target_day = get_target_day(use_today)
     try:
         # Try to get the same date one year ago
-        one_year_ago = tomorrow.replace(year=tomorrow.year - 1)
+        one_year_ago = target_day.replace(year=target_day.year - 1)
         return one_year_ago
     except ValueError:
-        # This happens when tomorrow is Feb 29 and last year wasn't a leap year
+        # This happens when target day is Feb 29 and last year wasn't a leap year
         # Fall back to Feb 28
-        if tomorrow.month == 2 and tomorrow.day == 29:
-            one_year_ago = tomorrow.replace(year=tomorrow.year - 1, day=28)
-            logger.info(f"Leap year adjustment: Feb 29 -> Feb 28 for year {tomorrow.year - 1}")
+        if target_day.month == 2 and target_day.day == 29:
+            one_year_ago = target_day.replace(year=target_day.year - 1, day=28)
+            logger.info(f"Leap year adjustment: Feb 29 -> Feb 28 for year {target_day.year - 1}")
             return one_year_ago
         else:
             # Re-raise if it's a different kind of error
             raise
 
-def get_one_year_ago_filename():
+def get_one_year_ago_filename(use_today=False):
     """
     Format one year ago date to match the journal filename format for the 'On this Day' property.
     Note: For Linux/macOS use '%-d', for Windows '%#d'
     """
-    one_year_ago = get_one_year_ago_date()
+    one_year_ago = get_one_year_ago_date(use_today)
     try:
         filename = one_year_ago.strftime('%b %-d, %Y')
     except Exception:
@@ -209,12 +209,12 @@ def parse_date_range_from_filename(filename, target_date):
         logger.warning(f"Could not parse dates from filename '{filename}': {e}")
         return False
 
-def get_long_cycle_filename():
+def get_long_cycle_filename(use_today=False):
     """
-    Scan the _6-Week-Cycles folder and find which file contains tomorrow's date.
-    Returns the filename string that matches tomorrow's date range.
+    Scan the _6-Week-Cycles folder and find which file contains target day's date.
+    Returns the filename string that matches target day's date range.
     """
-    tomorrow = get_tomorrow().date()
+    target_day = get_target_day(use_today).date()
     
     vault_path = os.getenv("DROPBOX_OBSIDIAN_VAULT_PATH")
     if not vault_path:
@@ -241,14 +241,14 @@ def get_long_cycle_filename():
             filename = entry.name
             
             # Extract date range from filename
-            if parse_date_range_from_filename(filename, tomorrow):
+            if parse_date_range_from_filename(filename, target_day):
                 # Remove .md extension if present
                 if filename.lower().endswith('.md'):
                     filename = filename[:-3]
                 logger.info(f"Found matching long cycle file: {filename}")
                 return filename
     
-    logger.warning(f"No long cycle file found containing tomorrow's date: {tomorrow}")
+    logger.warning(f"No long cycle file found containing target day's date: {target_day}")
     return None
 
 def process_mapping(mapping, vault_path):
@@ -289,16 +289,16 @@ def process_mapping(mapping, vault_path):
         "relationship": f"[[{base_name}]]"  # Relationship without the .md extension.
     }
 
-def get_dynamic_mappings():
+def get_dynamic_mappings(use_today=False):
     """
     Generates a dictionary of dynamic mappings using date transformations and Dropbox file lookups.
     The returned dictionary maps property keys to their relationship strings.
     """
-    week_ending = get_week_ending_sunday()
-    filenames = get_week_ending_filenames()
-    cycle_date_range = get_cycle_date_range()
-    weekly_newsletter = get_weekly_newsletter_filename()
-    long_cycle_filename = get_long_cycle_filename()
+    week_ending = get_week_ending_sunday(use_today)
+    filenames = get_week_ending_filenames(use_today)
+    cycle_date_range = get_cycle_date_range(use_today)
+    weekly_newsletter = get_weekly_newsletter_filename(use_today)
+    long_cycle_filename = get_long_cycle_filename(use_today)
 
     # Define mappings with an added "key" property to designate YAML keys.
     mappings = [
@@ -369,21 +369,21 @@ def get_journal_folder_path(vault_path):
     return journal_folder
 
 # --- Journal YAML Update Functions ---
-def get_tomorrow_filename_for_journal():
+def get_tomorrow_filename_for_journal(use_today=False):
     """
-    Returns the filename for tomorrow's journal entry.
+    Returns the filename for target day's journal entry.
     """
-    tomorrow_filename = get_tomorrow_filename()
-    logger.info(f"Looking for tomorrow's journal file: {tomorrow_filename}")
-    return tomorrow_filename
+    target_filename = get_tomorrow_filename(use_today)
+    logger.info(f"Looking for target day's journal file: {target_filename}")
+    return target_filename
 
-def find_tomorrow_journal_entry(journal_folder):
+def find_tomorrow_journal_entry(journal_folder, use_today=False):
     """
-    Locates tomorrow's journal entry inside the given journal_folder.
+    Locates target day's journal entry inside the given journal_folder.
     Returns a tuple of (file_path, original_file_name).
     """
-    tomorrow_filename = get_tomorrow_filename_for_journal()
-    logger.info(f"Looking for tomorrow's journal file: {tomorrow_filename}")
+    target_filename = get_tomorrow_filename_for_journal(use_today)
+    logger.info(f"Looking for target day's journal file: {target_filename}")
     all_files = []
     try:
         response = dbx.files_list_folder(journal_folder)
@@ -396,10 +396,10 @@ def find_tomorrow_journal_entry(journal_folder):
         raise
 
     for entry in all_files:
-        if isinstance(entry, dropbox.files.FileMetadata) and entry.name.lower() == tomorrow_filename.lower():
-            logger.info(f"Found tomorrow's journal file: {entry.name}")
+        if isinstance(entry, dropbox.files.FileMetadata) and entry.name.lower() == target_filename.lower():
+            logger.info(f"Found target day's journal file: {entry.name}")
             return entry.path_lower, entry.name  # Preserve original filename casing.
-    raise FileNotFoundError(f"No journal file found for tomorrow's date ({tomorrow_filename}) in '{journal_folder}'")
+    raise FileNotFoundError(f"No journal file found for target date ({target_filename}) in '{journal_folder}'")
 
 def retrieve_file_content(file_path):
     """Retrieve the content of a file from Dropbox."""
@@ -434,17 +434,17 @@ def extract_yaml_metadata(file_content):
             return None, None
     return {}, file_content
 
-def update_yaml_metadata(metadata, dynamic_mappings):
+def update_yaml_metadata(metadata, dynamic_mappings, use_today=False):
     """
-    Update YAML metadata with tomorrow's day of week, date, dynamic relationship mappings,
+    Update YAML metadata with target day's day of week, date, dynamic relationship mappings,
     add the Daily Action property as a list relationship, and add the 'On this Day' property
     with the one year ago journal reference.
     For keys that should be lists (e.g., 'Weeks', '_Weekly Health Reviews', '_Cycles', 'Daily Action', 'On this Day'),
     the value is assigned as a list.
     """
-    # Update simple fields using tomorrow's date
-    metadata["Day of Week"] = get_day_of_week()
-    metadata["Date"] = get_tomorrow_iso_date()
+    # Update simple fields using target day's date
+    metadata["Day of Week"] = get_day_of_week(use_today)
+    metadata["Date"] = get_tomorrow_iso_date(use_today)
 
     # Define which keys should be list properties
     list_keys = {"Weeks", "_Weekly Health Reviews", "_Cycles", "_Long-Cycle", "Daily Action", "On this Day"}
@@ -456,11 +456,11 @@ def update_yaml_metadata(metadata, dynamic_mappings):
             metadata[key] = relationship
 
     # Add the Daily Action property as a list relationship formatted as '[[DA YYYY-MM-DD]]'
-    daily_action = f"[[DA {get_tomorrow_date()}]]"
+    daily_action = f"[[DA {get_tomorrow_date(use_today)}]]"
     metadata["Daily Action"] = [daily_action]
 
     # Add the 'On this Day' property with one year ago journal reference
-    one_year_ago_filename = get_one_year_ago_filename()
+    one_year_ago_filename = get_one_year_ago_filename(use_today)
     metadata["On this Day"] = [f"[[{one_year_ago_filename}]]"]
 
     return metadata
@@ -485,17 +485,23 @@ def save_updated_file(file_path, file_name, updated_metadata, content):
 
 # --- Main Workflow ---
 def main():
+    parser = argparse.ArgumentParser(description="Update daily properties in journal file")
+    parser.add_argument("--today", action="store_true", 
+                       help="Update today's journal instead of tomorrow's")
+    args = parser.parse_args()
+    
     try:
-        # Step 1: Check if tomorrow's journal exists first (early exit if not found)
+        # Step 1: Check if target day's journal exists first (early exit if not found)
         vault_path = os.getenv("DROPBOX_OBSIDIAN_VAULT_PATH")
         if not vault_path:
             logger.error("DROPBOX_OBSIDIAN_VAULT_PATH environment variable is not set.")
             return
         
-        logger.info("Checking if tomorrow's journal exists before proceeding...")
+        day_desc = "today's" if args.today else "tomorrow's"
+        logger.info(f"Checking if {day_desc} journal exists before proceeding...")
         journal_folder_path = get_journal_folder_path(vault_path)
-        journal_file_path, journal_file_name = find_tomorrow_journal_entry(journal_folder_path)
-        logger.info(f"Tomorrow's journal entry found at: {journal_file_path}")
+        journal_file_path, journal_file_name = find_tomorrow_journal_entry(journal_folder_path, args.today)
+        logger.info(f"{day_desc.capitalize()} journal entry found at: {journal_file_path}")
 
         # Step 2: Retrieve file content and extract YAML front matter (early validation)
         file_content = retrieve_file_content(journal_file_path)
@@ -509,17 +515,18 @@ def main():
 
         # Step 3: Now that we know the journal exists, generate dynamic mappings (expensive operations)
         logger.info("Journal found - proceeding with dynamic mappings lookup...")
-        dynamic_mappings = get_dynamic_mappings()
+        dynamic_mappings = get_dynamic_mappings(args.today)
         logger.info(f"Dynamic mappings: {dynamic_mappings}")
 
-        # Step 4: Update YAML metadata with tomorrow's date info, dynamic mappings, and Daily Action.
-        updated_metadata = update_yaml_metadata(metadata, dynamic_mappings)
+        # Step 4: Update YAML metadata with target day's date info, dynamic mappings, and Daily Action.
+        updated_metadata = update_yaml_metadata(metadata, dynamic_mappings, args.today)
 
         # Step 5: Save the updated journal file back to Dropbox.
         save_updated_file(journal_file_path, journal_file_name, updated_metadata, remaining_content)
 
     except FileNotFoundError as e:
-        logger.warning(f"Tomorrow's journal not found - skipping update: {e}")
+        day_desc = "Today's" if args.today else "Tomorrow's"
+        logger.warning(f"{day_desc} journal not found - skipping update: {e}")
     except Exception as e:
         logger.error(f"An error occurred: {e}")
 
