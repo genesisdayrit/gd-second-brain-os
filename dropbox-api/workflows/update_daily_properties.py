@@ -44,9 +44,14 @@ dbx = dropbox.Dropbox(DROPBOX_ACCESS_TOKEN)
 logger.info("Dropbox client initialized.")
 
 # --- Date Functions Using Tomorrow's Date ---
+def get_target_day(use_today=False):
+    """Return target day's datetime object in the configured timezone."""
+    days_offset = 0 if use_today else 1
+    return datetime.now(pytz.timezone(timezone_str)) + timedelta(days=days_offset)
+
 def get_tomorrow():
     """Return tomorrow's datetime object in the configured timezone."""
-    return datetime.now(pytz.timezone(timezone_str)) + timedelta(days=1)
+    return get_target_day(use_today=False)
 
 def get_day_of_week():
     tomorrow = get_tomorrow()
