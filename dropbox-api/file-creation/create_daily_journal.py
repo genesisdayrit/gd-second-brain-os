@@ -6,6 +6,7 @@ import redis
 from dotenv import load_dotenv
 from pathlib import Path
 import logging
+import argparse
 
 # --- Logging Configuration ---
 logging.basicConfig(
@@ -77,11 +78,12 @@ def get_template_content(templates_folder):
         print(f"Attempted to retrieve from path: {template_path}")
         return ""
 
-def create_journal_file(journal_folder_path, vault_path):
+def create_journal_file(journal_folder_path, vault_path, use_today=False):
     # Define timezone using environment variable
     system_tz = pytz.timezone(timezone_str)
     now_system = datetime.now(system_tz)
-    next_day = now_system + timedelta(days=1)
+    days_offset = 0 if use_today else 1
+    next_day = now_system + timedelta(days=days_offset)
     
     formatted_date = f"{next_day.strftime('%b')} {next_day.day}, {next_day.strftime('%Y')}"
     file_name = f"{formatted_date}.md"
@@ -108,6 +110,11 @@ def create_journal_file(journal_folder_path, vault_path):
             raise
 
 def main():
+    parser = argparse.ArgumentParser(description="Create daily journal file")
+    parser.add_argument("--today", action="store_true", 
+                       help="Create journal file for today instead of tomorrow")
+    args = parser.parse_args()
+    
     dropbox_vault_path = os.getenv('DROPBOX_OBSIDIAN_VAULT_PATH')
     if not dropbox_vault_path:
         print("Error: DROPBOX_OBSIDIAN_VAULT_PATH environment variable not set")
@@ -115,7 +122,7 @@ def main():
     try:
         daily_folder_path = find_daily_folder(dropbox_vault_path)
         journal_folder_path = f"{daily_folder_path}/_Journal"
-        create_journal_file(journal_folder_path, dropbox_vault_path)
+        create_journal_file(journal_folder_path, dropbox_vault_path, args.today)
     except FileNotFoundError as e:
         print(f"Error: {e}")
     except Exception as e:

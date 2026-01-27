@@ -8,6 +8,7 @@ from pathlib import Path
 import logging
 import re
 import yaml
+import argparse
 
 # --- Logging Configuration ---
 logging.basicConfig(
@@ -56,9 +57,14 @@ DROPBOX_ACCESS_TOKEN = get_dropbox_access_token()
 dbx = dropbox.Dropbox(DROPBOX_ACCESS_TOKEN)
 
 # --- Date Utility Functions ---
+def get_target_day(use_today=False):
+    """Return target day's datetime object in the configured timezone."""
+    days_offset = 0 if use_today else 1
+    return datetime.now(pytz.timezone(timezone_str)) + timedelta(days=days_offset)
+
 def get_tomorrow():
     """Return tomorrow's datetime object in the configured timezone."""
-    return datetime.now(pytz.timezone(timezone_str)) + timedelta(days=1)
+    return get_target_day(use_today=False)
 
 def get_tomorrow_journal_filename():
     """Format tomorrow's date to match journal filename format: 'MMM D, YYYY'"""
@@ -325,10 +331,10 @@ def generate_yaml_properties(vault_path):
         'weekly_map': weekly_map_list
     }
 
-def create_daily_action_file(daily_action_folder_path, vault_path):
+def create_daily_action_file(daily_action_folder_path, vault_path, use_today=False):
     """Create a new daily action file with YAML properties and structured content."""
-    # Get tomorrow's date for filename
-    next_day = get_tomorrow()
+    # Get target day's date for filename
+    next_day = get_target_day(use_today)
     
     # Format the file name as "DA YYYY-MM-DD"
     file_name = f"DA {next_day.strftime('%Y-%m-%d')}.md"
@@ -380,6 +386,11 @@ def create_daily_action_file(daily_action_folder_path, vault_path):
             raise
 
 def main():
+    parser = argparse.ArgumentParser(description="Create daily action page file")
+    parser.add_argument("--today", action="store_true", 
+                       help="Create action page for today instead of tomorrow")
+    args = parser.parse_args()
+    
     dropbox_vault_path = os.getenv('DROPBOX_OBSIDIAN_VAULT_PATH')
     if not dropbox_vault_path:
         print("Error: DROPBOX_OBSIDIAN_VAULT_PATH environment variable not set")
@@ -387,7 +398,7 @@ def main():
     try:
         daily_folder_path = find_daily_folder(dropbox_vault_path)
         daily_action_folder_path = find_daily_action_folder(daily_folder_path)
-        create_daily_action_file(daily_action_folder_path, dropbox_vault_path)
+        create_daily_action_file(daily_action_folder_path, dropbox_vault_path, args.today)
     except FileNotFoundError as e:
         print(f"Error: {e}")
     except Exception as e:
