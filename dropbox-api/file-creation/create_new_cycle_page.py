@@ -1,5 +1,6 @@
 import os
 import sys
+import argparse
 from datetime import datetime, timedelta
 import dropbox
 import redis
@@ -64,20 +65,26 @@ def date_range_exists(cycles_folder_path, date_range):
             return True
     return False
 
-def create_cycle_file(cycles_folder_path):
+def create_cycle_file(cycles_folder_path, use_current=False):
     last_cycle_number = fetch_last_cycle_number(cycles_folder_path)
     new_cycle_number = last_cycle_number + 1
 
-    # Calculate the next Wednesday
     today = datetime.now()
-    days_until_next_wednesday = (2 - today.weekday()) % 7
-    if days_until_next_wednesday == 0:
-        days_until_next_wednesday = 7
-    next_wednesday = today + timedelta(days=days_until_next_wednesday)
     
-    following_tuesday = next_wednesday + timedelta(days=6)
+    if use_current:
+        # Calculate the current week's Wednesday (most recent Wednesday, including today if it's Wednesday)
+        days_since_wednesday = (today.weekday() - 2) % 7
+        cycle_wednesday = today - timedelta(days=days_since_wednesday)
+    else:
+        # Calculate the next Wednesday
+        days_until_next_wednesday = (2 - today.weekday()) % 7
+        if days_until_next_wednesday == 0:
+            days_until_next_wednesday = 7
+        cycle_wednesday = today + timedelta(days=days_until_next_wednesday)
     
-    formatted_wednesday = next_wednesday.strftime("%b. %d")
+    following_tuesday = cycle_wednesday + timedelta(days=6)
+    
+    formatted_wednesday = cycle_wednesday.strftime("%b. %d")
     formatted_tuesday = following_tuesday.strftime("%b. %d, %Y")
 
     # Create the file name and date range
@@ -92,13 +99,18 @@ def create_cycle_file(cycles_folder_path):
 
     # Create the file with content
     try:
-        file_content = f"Cycle Start Date: {next_wednesday.strftime('%Y-%m-%d')}\nCycle End Date: {following_tuesday.strftime('%Y-%m-%d')}\n"
+        file_content = f"Cycle Start Date: {cycle_wednesday.strftime('%Y-%m-%d')}\nCycle End Date: {following_tuesday.strftime('%Y-%m-%d')}\n"
         dbx.files_upload(file_content.encode(), dropbox_file_path)
         print(f"Successfully created file '{file_name}' in Dropbox.")
     except dropbox.exceptions.ApiError as e:
         print(f"Error creating file: {e}")
 
 def main():
+    parser = argparse.ArgumentParser(description="Create a new weekly cycle page")
+    parser.add_argument("--current", action="store_true", 
+                       help="Create cycle page for current week instead of next week")
+    args = parser.parse_args()
+    
     dropbox_vault_path = os.getenv('DROPBOX_OBSIDIAN_VAULT_PATH')
     if not dropbox_vault_path:
         print("Error: DROPBOX_OBSIDIAN_VAULT_PATH environment variable not set")
@@ -118,7 +130,7 @@ def main():
         print(f"Error: {e}")
         sys.exit(1)
 
-    create_cycle_file(weekly_cycles_folder_path)
+    create_cycle_file(weekly_cycles_folder_path, args.current)
 
 if __name__ == "__main__":
     main()

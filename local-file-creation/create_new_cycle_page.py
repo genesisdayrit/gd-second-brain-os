@@ -1,5 +1,6 @@
 import os
 import sys
+import argparse
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
@@ -25,20 +26,26 @@ def fetch_last_cycle_number(cycles_path):
     cycle_numbers = [int(f.split(" ")[1].split(" ")[0]) for f in cycle_files]
     return max(cycle_numbers)
 
-def create_cycle_file(file_path):
+def create_cycle_file(file_path, use_current=False):
     last_cycle_number = fetch_last_cycle_number(file_path)
     new_cycle_number = last_cycle_number + 1
 
-    # Calculate the next Wednesday
     today = datetime.now()
-    days_until_next_wednesday = (2 - today.weekday()) % 7
-    if days_until_next_wednesday == 0:
-        days_until_next_wednesday = 7
-    next_wednesday = today + timedelta(days=days_until_next_wednesday)
     
-    following_tuesday = next_wednesday + timedelta(days=6)
+    if use_current:
+        # Calculate the current week's Wednesday (most recent Wednesday, including today if it's Wednesday)
+        days_since_wednesday = (today.weekday() - 2) % 7
+        cycle_wednesday = today - timedelta(days=days_since_wednesday)
+    else:
+        # Calculate the next Wednesday
+        days_until_next_wednesday = (2 - today.weekday()) % 7
+        if days_until_next_wednesday == 0:
+            days_until_next_wednesday = 7
+        cycle_wednesday = today + timedelta(days=days_until_next_wednesday)
     
-    formatted_wednesday = next_wednesday.strftime("%b. %d")
+    following_tuesday = cycle_wednesday + timedelta(days=6)
+    
+    formatted_wednesday = cycle_wednesday.strftime("%b. %d")
     formatted_tuesday = following_tuesday.strftime("%b. %d, %Y")
 
     # Create the file name
@@ -53,13 +60,18 @@ def create_cycle_file(file_path):
     # Create the file with content
     try:
         with open(full_file_path, 'w') as file:
-            file.write(f"Cycle Start Date: {next_wednesday.strftime('%Y-%m-%d')}\n")
+            file.write(f"Cycle Start Date: {cycle_wednesday.strftime('%Y-%m-%d')}\n")
             file.write(f"Cycle End Date: {following_tuesday.strftime('%Y-%m-%d')}\n")
         print(f"Successfully created file '{file_name}'")
     except IOError as e:
         print(f"Error creating file: {e}")
 
 def main():
+    parser = argparse.ArgumentParser(description="Create a new weekly cycle page")
+    parser.add_argument("--current", action="store_true", 
+                       help="Create cycle page for current week instead of next week")
+    args = parser.parse_args()
+    
     # Get the base path from environment variable
     base_path = os.getenv('OBSIDIAN_VAULT_BASE_PATH')
     if not base_path:
@@ -75,7 +87,7 @@ def main():
         print(f"Error: {e}")
         sys.exit(1)
 
-    create_cycle_file(weekly_cycles_path)
+    create_cycle_file(weekly_cycles_path, args.current)
 
 if __name__ == "__main__":
     main()
