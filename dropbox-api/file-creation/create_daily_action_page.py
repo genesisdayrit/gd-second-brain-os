@@ -74,6 +74,16 @@ def get_tomorrow_journal_filename():
     except ValueError:
         return tomorrow.strftime('%b %#d, %Y')  # Windows
 
+def get_previous_da_filename(use_today=False):
+    """Format the day-before-target-day's date as a DA filename: 'DA YYYY-MM-DD'."""
+    previous_day = get_target_day(use_today) - timedelta(days=1)
+    return f"DA {previous_day.strftime('%Y-%m-%d')}"
+
+def get_next_da_filename(use_today=False):
+    """Format the day-after-target-day's date as a DA filename: 'DA YYYY-MM-DD'."""
+    next_day = get_target_day(use_today) + timedelta(days=1)
+    return f"DA {next_day.strftime('%Y-%m-%d')}"
+
 def get_cycle_date_range():
     """Get weekly cycle date range for tomorrow's date."""
     tomorrow = get_tomorrow()
@@ -306,29 +316,35 @@ def find_weekly_map_link(vault_path):
         logger.error(f"Error finding weekly map link: {e}")
         return ""
 
-def generate_yaml_properties(vault_path):
+def generate_yaml_properties(vault_path, use_today=False):
     """Generate the YAML properties with relationship links."""
     # Journal link - simple date formatting (not a list)
     journal_filename = get_tomorrow_journal_filename()
     journal_link = f"[[{journal_filename}]]"
-    
+
     # Weekly cycle link (should be a list)
     weekly_cycle_link = find_weekly_cycle_link(vault_path)
     weekly_cycle_list = [weekly_cycle_link] if weekly_cycle_link else []
-    
+
     # Long cycle link (should be a list)
     long_cycle_link = find_long_cycle_link(vault_path)
     long_cycle_list = [long_cycle_link] if long_cycle_link else []
-    
+
     # Weekly map link (should be a list)
     weekly_map_link = find_weekly_map_link(vault_path)
     weekly_map_list = [weekly_map_link] if weekly_map_link else []
-    
+
+    # Previous/next DA links, relative to the target day (list-valued)
+    previous_da_link = f"[[{get_previous_da_filename(use_today)}]]"
+    next_da_link = f"[[{get_next_da_filename(use_today)}]]"
+
     return {
         'journal': journal_link,
         'weekly_cycle': weekly_cycle_list,
         'long_cycle': long_cycle_list,
-        'weekly_map': weekly_map_list
+        'weekly_map': weekly_map_list,
+        'previous_daily_action': [previous_da_link],
+        'next_daily_action': [next_da_link],
     }
 
 def create_daily_action_file(daily_action_folder_path, vault_path, use_today=False):
@@ -341,14 +357,16 @@ def create_daily_action_file(daily_action_folder_path, vault_path, use_today=Fal
     dropbox_file_path = f"{daily_action_folder_path}/{file_name}"
 
     # Generate YAML properties
-    yaml_props = generate_yaml_properties(vault_path)
-    
+    yaml_props = generate_yaml_properties(vault_path, use_today)
+
     # Build YAML frontmatter using proper YAML formatting
     yaml_metadata = {
         '_Journal': yaml_props['journal'],
         '_Weekly-Cycle': yaml_props['weekly_cycle'],
         '_Long-Cycle': yaml_props['long_cycle'],
-        '_Weekly-Map': yaml_props['weekly_map']
+        '_Weekly-Map': yaml_props['weekly_map'],
+        'Previous Day': yaml_props['previous_daily_action'],
+        'Next Day': yaml_props['next_daily_action'],
     }
     
     yaml_str = yaml.safe_dump(yaml_metadata, default_flow_style=False, sort_keys=False)
