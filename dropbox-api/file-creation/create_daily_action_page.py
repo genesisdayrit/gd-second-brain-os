@@ -239,6 +239,44 @@ def find_daily_action_folder(vault_path):
             return entry.path_lower
     raise FileNotFoundError("Could not find a folder ending with '_Daily-Action' in Dropbox")
 
+def find_templates_folder(vault_path):
+    """Search for the '_Templates' folder in the specified vault path."""
+    response = dbx.files_list_folder(vault_path)
+    for entry in response.entries:
+        if isinstance(entry, dropbox.files.FolderMetadata) and entry.name.endswith("_Templates"):
+            return entry.path_lower
+    raise FileNotFoundError("Could not find a folder ending with '_Templates' in Dropbox")
+
+def get_daily_action_template(templates_folder):
+    """Download the daily action template file content from the vault."""
+    template_path = f"{templates_folder}/daily-templates/daily_action_properties.md"
+    _, response = dbx.files_download(template_path)
+    return response.content.decode('utf-8')
+
+def extract_yaml_metadata(file_content):
+    """
+    Extract YAML front matter from file content.
+    Returns a tuple (metadata_dict, body_str). metadata_dict is None if YAML parsing fails.
+    """
+    lines = file_content.splitlines()
+    if lines and lines[0].strip() == "---":
+        yaml_lines = []
+        content_start = None
+        for i, line in enumerate(lines[1:], start=1):
+            if line.strip() == "---":
+                content_start = i + 1
+                break
+            yaml_lines.append(line)
+        yaml_str = "\n".join(yaml_lines)
+        try:
+            metadata = yaml.safe_load(yaml_str) or {}
+            body = "\n".join(lines[content_start:]) if content_start is not None else ""
+            return metadata, body
+        except yaml.YAMLError as e:
+            logger.error(f"Error parsing YAML from template: {e}")
+            return None, None
+    return {}, file_content
+
 # --- Relationship Discovery Functions ---
 def find_weekly_cycle_link(vault_path):
     """Find weekly cycle file for tomorrow's date."""
@@ -348,60 +386,50 @@ def generate_yaml_properties(vault_path, use_today=False):
     }
 
 def create_daily_action_file(daily_action_folder_path, vault_path, use_today=False):
-    """Create a new daily action file with YAML properties and structured content."""
+    """Create a new daily action file from the vault template, filling in dynamic YAML properties."""
     # Get target day's date for filename
     next_day = get_target_day(use_today)
-    
+
     # Format the file name as "DA YYYY-MM-DD"
     file_name = f"DA {next_day.strftime('%Y-%m-%d')}.md"
     dropbox_file_path = f"{daily_action_folder_path}/{file_name}"
 
-    # Generate YAML properties
-    yaml_props = generate_yaml_properties(vault_path, use_today)
-
-    # Build YAML frontmatter using proper YAML formatting
-    yaml_metadata = {
-        '_Journal': yaml_props['journal'],
-        '_Weekly-Cycle': yaml_props['weekly_cycle'],
-        '_Long-Cycle': yaml_props['long_cycle'],
-        '_Weekly-Map': yaml_props['weekly_map'],
-        'Previous Day': yaml_props['previous_daily_action'],
-        'Next Day': yaml_props['next_daily_action'],
-    }
-    
-    yaml_str = yaml.safe_dump(yaml_metadata, default_flow_style=False, sort_keys=False)
-    yaml_section = f"---\n{yaml_str}---\n\n"
-    
-    # Content structure with section prompts and questions
-    main_content = (
-        "Vision Objective 1:\n"
-        "Vision Objective 2:\n"
-        "Vision Objective 3:\n\n"
-        "One thing that you can do to improve today:\n\n"
-        "Mindset Objective:\n"
-        "Body Objective:\n"
-        "Social Objective:\n\n"
-        "Gratitude:\n\n"
-        "---\n\n"
-        "What is the highest leverage thing that you can do today to move the ball forward on what you need to?\n"
-        "If you only had 2 hours to work today, what would you need to get done to move forward towards your goals or master vision?"
-    )
-    
-    # Combine YAML and content
-    content = yaml_section + main_content
-
+    # Early exit if the file already exists so we skip expensive template/lookup work
     try:
-        # Check if the file already exists
         dbx.files_get_metadata(dropbox_file_path)
         print(f"Daily action file for '{next_day.strftime('%Y-%m-%d')}' already exists. No new file created.")
+        return
     except dropbox.exceptions.ApiError as e:
-        if isinstance(e.error, dropbox.files.GetMetadataError):
-            print(f"File '{file_name}' does not exist in Dropbox. Creating it now.")
-            # Upload the file with the content
-            dbx.files_upload(content.encode('utf-8'), dropbox_file_path)
-            print(f"Successfully created daily action file '{file_name}' in Dropbox.")
-        else:
+        if not isinstance(e.error, dropbox.files.GetMetadataError):
             raise
+
+    # Download and parse the template
+    templates_folder = find_templates_folder(vault_path)
+    template_content = get_daily_action_template(templates_folder)
+    metadata, body = extract_yaml_metadata(template_content)
+    if metadata is None:
+        logger.error("Could not parse YAML from daily action template; aborting.")
+        return
+
+    # Resolve dynamic property values
+    yaml_props = generate_yaml_properties(vault_path, use_today)
+
+    # Fill in known keys; template key order and any untouched keys (e.g. Created time,
+    # Last Edited Date, Shuffler) are preserved.
+    metadata['_Journal'] = yaml_props['journal']
+    metadata['Date'] = next_day.strftime('%Y-%m-%d')
+    metadata['_Weekly-Cycle'] = yaml_props['weekly_cycle']
+    metadata['_Long-Cycle'] = yaml_props['long_cycle']
+    metadata['_Weekly-Map'] = yaml_props['weekly_map']
+    metadata['Previous Day'] = yaml_props['previous_daily_action']
+    metadata['Next Day'] = yaml_props['next_daily_action']
+
+    yaml_str = yaml.safe_dump(metadata, default_flow_style=False, sort_keys=False)
+    content = f"---\n{yaml_str}---\n{body}"
+
+    print(f"File '{file_name}' does not exist in Dropbox. Creating it now.")
+    dbx.files_upload(content.encode('utf-8'), dropbox_file_path)
+    print(f"Successfully created daily action file '{file_name}' in Dropbox using template.")
 
 def main():
     parser = argparse.ArgumentParser(description="Create daily action page file")
