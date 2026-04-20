@@ -132,9 +132,25 @@ def get_one_year_ago_filename(use_today=False):
         filename = one_year_ago.strftime('%b %-d, %Y')
     except Exception:
         filename = one_year_ago.strftime('%b %#d, %Y')
-    
+
     logger.info(f"One year ago filename: {filename}")
     return filename
+
+def get_previous_day_filename(use_today=False):
+    """Format the day-before-target-day to match the journal filename format: 'MMM D, YYYY'."""
+    previous_day = get_target_day(use_today) - timedelta(days=1)
+    try:
+        return previous_day.strftime('%b %-d, %Y')
+    except Exception:
+        return previous_day.strftime('%b %#d, %Y')
+
+def get_next_day_filename(use_today=False):
+    """Format the day-after-target-day to match the journal filename format: 'MMM D, YYYY'."""
+    next_day = get_target_day(use_today) + timedelta(days=1)
+    try:
+        return next_day.strftime('%b %-d, %Y')
+    except Exception:
+        return next_day.strftime('%b %#d, %Y')
 
 # --- Dropbox File/Folder Helper Functions ---
 def list_all_entries(base_path):
@@ -462,6 +478,10 @@ def update_yaml_metadata(metadata, dynamic_mappings, use_today=False):
     # Add the 'On this Day' property with one year ago journal reference
     one_year_ago_filename = get_one_year_ago_filename(use_today)
     metadata["On this Day"] = [f"[[{one_year_ago_filename}]]"]
+
+    # Add Previous/Next Day journal references, relative to target day
+    metadata["Previous Day"] = [f"[[{get_previous_day_filename(use_today)}]]"]
+    metadata["Next Day"] = [f"[[{get_next_day_filename(use_today)}]]"]
 
     return metadata
 
