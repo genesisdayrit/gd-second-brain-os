@@ -93,7 +93,7 @@ def add_daily_review_section(daily_action_folder_path):
         "Win 1:\n\n"
         "Win 2 (What part of today was easiest, most enjoyable, and most effective in the direction of my dream reality?):\n\n"
         "Win 3 (What proof from today demonstrates that my Master Vision is unfolding before my eyes? And how did I create this win for myself?):\n\n"
-        "What did not go well today...\n"
+        "Blockers / What did not go well today...\n"
         "Be as brief or as detailed as you like:\n\n"
         "What concrete steps will you take to improve and make your life easier?\n\n"
         "Lastly, what are a few things you are grateful for?\n"
