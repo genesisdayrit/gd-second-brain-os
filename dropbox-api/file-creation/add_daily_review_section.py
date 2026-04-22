@@ -45,6 +45,25 @@ def find_daily_action_folder(vault_path):
             return entry.path_lower
     raise FileNotFoundError("Could not find a folder ending with '_Daily-Action' in Dropbox")
 
+def find_templates_folder(vault_path):
+    """Search for the '_Templates' folder in the specified vault path."""
+    response = dbx.files_list_folder(vault_path)
+    for entry in response.entries:
+        if isinstance(entry, dropbox.files.FolderMetadata) and entry.name.endswith("_Templates"):
+            return entry.path_lower
+    raise FileNotFoundError("Could not find a folder ending with '_Templates' in Dropbox")
+
+def get_daily_review_template(templates_folder):
+    """Download the daily review template content from the vault."""
+    template_path = f"{templates_folder}/daily-templates/daily_review_content.md"
+    _, response = dbx.files_download(template_path)
+    content = response.content.decode('utf-8')
+    # Normalize surrounding whitespace so there's exactly one blank line between
+    # the YAML frontmatter and the template body, and between the template body
+    # and the existing main content. Keeps output consistent regardless of how
+    # the template file is formatted in Obsidian.
+    return content.strip() + "\n\n"
+
 def parse_yaml_frontmatter(content):
     """
     Parse YAML frontmatter from markdown content.
@@ -80,26 +99,17 @@ def parse_yaml_frontmatter(content):
     
     return yaml_section, main_content
 
-def add_daily_review_section(daily_action_folder_path):
+def add_daily_review_section(daily_action_folder_path, vault_path):
     """Find today's file and add a 'Daily Review' section after YAML frontmatter."""
     # Get today's date to find the file
     today_date_str = datetime.now().strftime('%Y-%m-%d')
     file_name = f"DA {today_date_str}.md"
     dropbox_file_path = f"{daily_action_folder_path}/{file_name}"
 
-    # Define the 'Daily Review' content to be added after YAML frontmatter
-    daily_review_content = (
-        "Daily Review:\n\n"
-        "Win 1:\n\n"
-        "Win 2 (What part of today was easiest, most enjoyable, and most effective in the direction of my dream reality?):\n\n"
-        "Win 3 (What proof from today demonstrates that my Master Vision is unfolding before my eyes? And how did I create this win for myself?):\n\n"
-        "Blockers / What did not go well today...\n"
-        "Be as brief or as detailed as you like:\n\n"
-        "What concrete steps will you take to improve and make your life easier?\n\n"
-        "Lastly, what are a few things you are grateful for?\n"
-        "Think of something new or different than usual!\n\n"
-        "---\n\n"
-    )
+    # Pull the 'Daily Review' content from the vault template so edits to the
+    # template in Obsidian/Dropbox propagate here without code changes.
+    templates_folder = find_templates_folder(vault_path)
+    daily_review_content = get_daily_review_template(templates_folder)
 
     try:
         # Download the file's current content
@@ -133,7 +143,7 @@ def main():
     try:
         daily_folder_path = find_daily_folder(dropbox_vault_path)
         daily_action_folder_path = find_daily_action_folder(daily_folder_path)
-        add_daily_review_section(daily_action_folder_path)
+        add_daily_review_section(daily_action_folder_path, dropbox_vault_path)
     except FileNotFoundError as e:
         print(f"Error: {e}")
     except Exception as e:
