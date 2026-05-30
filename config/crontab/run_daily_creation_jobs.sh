@@ -44,6 +44,7 @@ run_job() {
 
 run_job "create_daily_journal.py --today" "create_daily_journal.log" "$PYTHON_BIN" "$PROJECT_ROOT/dropbox-api/file-creation/create_daily_journal.py" "--today"
 run_job "create_daily_action_page.py --today" "create_daily_action.log" "$PYTHON_BIN" "$PROJECT_ROOT/dropbox-api/file-creation/create_daily_action_page.py" "--today"
+run_job "update_daily_properties.py --today" "update_daily_properties.log" "$PYTHON_BIN" "$PROJECT_ROOT/dropbox-api/workflows/update_daily_properties.py" "--today"
 
 echo
 echo "Daily creation run finished. Success: $success_count, Failed: $failure_count"
