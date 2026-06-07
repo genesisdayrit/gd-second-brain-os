@@ -127,6 +127,47 @@ from datetime import datetime
 
 logger = logging.getLogger()
 
+# A frontmatter delimiter is a line whose only non-whitespace content is a run
+# of three or more dashes. Markdown table separators (e.g. "|---|---|") always
+# contain pipe characters, so they can never match this pattern.
+_FRONTMATTER_DELIMITER_RE = re.compile(r'^\s*-{3,}\s*$')
+
+
+def split_frontmatter(content):
+    """
+    Splits ``content`` into ``(frontmatter, body)``.
+
+    YAML frontmatter is recognized ONLY when the file begins with a delimiter
+    line (a line containing nothing but dashes) and has a matching closing
+    delimiter line. This deliberately ignores Markdown table separators such as
+    ``|---|---|`` because those lines contain pipe characters and therefore can
+    never be mistaken for a frontmatter fence.
+
+    Returns ``(frontmatter_str, body_str)`` when frontmatter is present, or
+    ``(None, content)`` when it is not.
+    """
+    lines = content.splitlines(keepends=True)
+    if not lines:
+        return None, content
+
+    # The first non-empty line must be a pure delimiter for frontmatter to exist.
+    first_idx = 0
+    while first_idx < len(lines) and lines[first_idx].strip() == "":
+        first_idx += 1
+    if first_idx >= len(lines) or not _FRONTMATTER_DELIMITER_RE.match(lines[first_idx]):
+        return None, content
+
+    # Find the closing delimiter line.
+    for close_idx in range(first_idx + 1, len(lines)):
+        if _FRONTMATTER_DELIMITER_RE.match(lines[close_idx]):
+            frontmatter = "".join(lines[first_idx + 1:close_idx])
+            body = "".join(lines[close_idx + 1:])
+            return frontmatter, body
+
+    # Opening fence with no matching close -> not valid frontmatter.
+    return None, content
+
+
 def update_journal_property(file_path):
     """
     Downloads the file, checks if the actual (client_modified) date 
@@ -161,12 +202,14 @@ def update_journal_property(file_path):
         #    If you're on Windows, you might want "%b %d, %Y" instead of "%b %-d, %Y"
         formatted_date = client_modified_local.strftime("%b %-d, %Y")
 
-        # 5. Parse and update frontmatter
-        properties_match = re.search(r'---(.*?)---', content, re.DOTALL)
-        if properties_match:
-            properties_section = properties_match.group(1)
+        # 5. Parse and update frontmatter.
+        #    Frontmatter is detected ONLY at the very top of the file via
+        #    dedicated delimiter lines, so Markdown table separators in the body
+        #    (e.g. "|---|---|") are never mistaken for the frontmatter fence.
+        properties_section, body = split_frontmatter(content)
 
-            # Check if the same date is already in the metadata
+        if properties_section is not None:
+            # Check if the same date is already in the frontmatter
             if f"[[{formatted_date}]]" in properties_section:
                 logger.info(f"Date [[{formatted_date}]] already exists for: {file_path}")
                 return  # Skip re-inserting
@@ -175,7 +218,7 @@ def update_journal_property(file_path):
             journal_match = re.search(r'Journal:\s*(.*?)(?=\n\S|$)', properties_section, re.DOTALL)
             if journal_match:
                 journal_entries_raw = journal_match.group(1).splitlines()
-                
+
                 # Extract the actual journal entry values (clean up existing entries)
                 journal_values = []
                 for line in journal_entries_raw:
@@ -189,17 +232,17 @@ def update_journal_property(file_path):
                             line = line[1:-1]
                         if line.startswith('[[') and line.endswith(']]'):
                             journal_values.append(line)
-                
+
                 # Add the new date if it's not already present
                 new_entry = f"[[{formatted_date}]]"
                 if new_entry not in journal_values:
                     journal_values.append(new_entry)
-                
+
                 # Rebuild all entries with consistent indentation (2 spaces + dash + space)
                 formatted_entries = []
                 for value in journal_values:
                     formatted_entries.append(f"  - \"{value}\"")
-                
+
                 updated_journal = "Journal:\n" + "\n".join(formatted_entries)
                 updated_properties = re.sub(
                     r'Journal:\s*(.*?)(?=\n\S|$)',
@@ -209,16 +252,16 @@ def update_journal_property(file_path):
                 )
             else:
                 # No 'Journal:' property yet; add it
-                updated_properties = properties_section + f"\nJournal:\n    - \"[[{formatted_date}]]\""
+                updated_properties = properties_section.rstrip() + f"\nJournal:\n  - \"[[{formatted_date}]]\""
 
-            # Rebuild the file content, ensuring the closing '---' is on a new line
-            body_after_frontmatter = content.split('---', 2)[2].strip()
-            updated_content = f"---\n{updated_properties.strip()}\n---\n{body_after_frontmatter}"
+            # Rebuild the file, keeping the body (and its tables) fully intact.
+            updated_content = f"---\n{updated_properties.strip()}\n---\n\n{body.lstrip(chr(10))}"
 
         else:
-            # No existing frontmatter, create a new section
+            # No existing frontmatter, create a new section above the original
+            # content. The full body (title, prose, tables) is preserved.
             updated_content = (
-                f"---\nJournal:\n    - \"[[{formatted_date}]]\"\n---\n{content}"
+                f"---\nJournal:\n  - \"[[{formatted_date}]]\"\n---\n\n{content.lstrip(chr(10))}"
             )
 
         # 6. Overwrite the file in Dropbox
