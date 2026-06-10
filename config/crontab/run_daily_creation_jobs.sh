@@ -22,6 +22,10 @@ fi
 
 mkdir -p "$CRON_LOGS_PATH"
 
+# Any args passed to this script (e.g. --today) are forwarded to each job.
+# With no args, the jobs run in their default (upcoming day) mode.
+EXTRA_ARGS=("$@")
+
 success_count=0
 failure_count=0
 declare -a failed_jobs=()
@@ -42,9 +46,10 @@ run_job() {
   fi
 }
 
-run_job "create_daily_journal.py --today" "create_daily_journal.log" "$PYTHON_BIN" "$PROJECT_ROOT/dropbox-api/file-creation/create_daily_journal.py" "--today"
-run_job "create_daily_action_page.py --today" "create_daily_action.log" "$PYTHON_BIN" "$PROJECT_ROOT/dropbox-api/file-creation/create_daily_action_page.py" "--today"
-run_job "update_daily_properties.py --today" "update_daily_properties.log" "$PYTHON_BIN" "$PROJECT_ROOT/dropbox-api/workflows/update_daily_properties.py" "--today"
+run_job "refresh_token_to_redis.py" "refresh_token_to_redis.log" "$PYTHON_BIN" "$PROJECT_ROOT/dropbox-api/config/refresh_token_to_redis.py"
+run_job "create_daily_journal.py ${EXTRA_ARGS[*]:-}" "create_daily_journal.log" "$PYTHON_BIN" "$PROJECT_ROOT/dropbox-api/file-creation/create_daily_journal.py" ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}
+run_job "create_daily_action_page.py ${EXTRA_ARGS[*]:-}" "create_daily_action.log" "$PYTHON_BIN" "$PROJECT_ROOT/dropbox-api/file-creation/create_daily_action_page.py" ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}
+run_job "update_daily_properties.py ${EXTRA_ARGS[*]:-}" "update_daily_properties.log" "$PYTHON_BIN" "$PROJECT_ROOT/dropbox-api/workflows/update_daily_properties.py" ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}
 
 echo
 echo "Daily creation run finished. Success: $success_count, Failed: $failure_count"
