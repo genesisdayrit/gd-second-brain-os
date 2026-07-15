@@ -386,7 +386,7 @@ def generate_yaml_properties(vault_path, use_today=False):
     }
 
 def create_daily_action_file(daily_action_folder_path, vault_path, use_today=False):
-    """Create a new daily action file from the vault template, filling in dynamic YAML properties."""
+    """Create a new daily action file with YAML properties from the vault template (no body)."""
     # Get target day's date for filename
     next_day = get_target_day(use_today)
 
@@ -403,7 +403,7 @@ def create_daily_action_file(daily_action_folder_path, vault_path, use_today=Fal
         if not isinstance(e.error, dropbox.files.GetMetadataError):
             raise
 
-    # Download and parse the template
+    # Download and parse the template (YAML properties only; body intentionally omitted)
     templates_folder = find_templates_folder(vault_path)
     template_content = get_daily_action_template(templates_folder)
     metadata, body = extract_yaml_metadata(template_content)
@@ -425,11 +425,15 @@ def create_daily_action_file(daily_action_folder_path, vault_path, use_today=Fal
     metadata['Next Day'] = yaml_props['next_daily_action']
 
     yaml_str = yaml.safe_dump(metadata, default_flow_style=False, sort_keys=False)
-    content = f"---\n{yaml_str}---\n{body}"
+    # Blank-slate page: YAML properties only.
+    # To restore template body (and daily_prep / daily_reflection scrapes that
+    # expect "Vision Objective 1: ... ---"), swap the next two lines:
+    # content = f"---\n{yaml_str}---\n{body}"
+    content = f"---\n{yaml_str}---\n"
 
     print(f"File '{file_name}' does not exist in Dropbox. Creating it now.")
     dbx.files_upload(content.encode('utf-8'), dropbox_file_path)
-    print(f"Successfully created daily action file '{file_name}' in Dropbox using template.")
+    print(f"Successfully created daily action file '{file_name}' in Dropbox with YAML properties only.")
 
 def main():
     parser = argparse.ArgumentParser(description="Create daily action page file")
